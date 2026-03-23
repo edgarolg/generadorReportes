@@ -1,0 +1,814 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0e0e16">
+<title>FotoReporte</title>
+<script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+:root{
+  --bg:#0e0e16;--s1:#16161f;--s2:#1e1e2a;--s3:#252533;
+  --acc:#7c6df5;--acc2:#a78bfa;--acc3:#c4b5fd;
+  --text:#ededf5;--muted:#7070a0;--border:#2a2a3d;
+  --green:#22d3a5;--red:#f4506a;--amber:#f59e0b;
+  --r:14px;--font:'Segoe UI',system-ui,sans-serif
+}
+body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:100dvh;overflow-x:hidden}
+
+/* ── NAV ── */
+.nav{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;background:var(--bg);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100}
+.logo{font-size:18px;font-weight:800;letter-spacing:-0.5px}
+.logo em{color:var(--acc2);font-style:normal}
+.nav-count{font-size:12px;color:var(--muted);background:var(--s2);padding:4px 10px;border-radius:20px;border:1px solid var(--border)}
+
+/* ── TABS ── */
+.tabs{display:flex;padding:10px 14px;gap:6px;background:var(--s1);border-bottom:1px solid var(--border)}
+.tab{flex:1;padding:9px 0;border-radius:10px;border:none;font-size:13px;font-weight:600;cursor:pointer;transition:.15s;color:var(--muted);background:transparent}
+.tab.on{background:var(--acc);color:#fff}
+
+/* ── SCREENS ── */
+.scr{display:none;padding-bottom:110px}
+.scr.on{display:block}
+
+/* ── CAMERA ── */
+.cam-box{position:relative;width:100%;background:#000;overflow:hidden}
+.cam-box video{width:100%;display:block;max-height:56vw;object-fit:cover}
+.cam-corner{position:absolute;pointer-events:none}
+.cam-corner.tl{top:12px;left:12px;border-top:2px solid rgba(255,255,255,.5);border-left:2px solid rgba(255,255,255,.5);width:22px;height:22px;border-radius:4px 0 0 0}
+.cam-corner.br{bottom:12px;right:12px;border-bottom:2px solid rgba(255,255,255,.5);border-right:2px solid rgba(255,255,255,.5);width:22px;height:22px;border-radius:0 0 4px 0}
+.cam-off{display:flex;align-items:center;justify-content:center;height:220px;flex-direction:column;gap:10px;color:var(--muted);font-size:14px;background:var(--s1)}
+.cam-off svg{opacity:.4}
+canvas#snap{display:none}
+
+.cam-ctrl{padding:14px 16px;background:var(--s1);display:flex;gap:10px;align-items:flex-end}
+.cam-ctrl .left{flex:1;display:flex;flex-direction:column;gap:8px}
+.proj-row{display:flex;gap:8px;align-items:center}
+
+label.lbl{font-size:11px;color:var(--muted);font-weight:600;letter-spacing:.5px;text-transform:uppercase}
+input.inp,select.sel,textarea.ta{width:100%;background:var(--s2);border:1px solid var(--border);border-radius:10px;color:var(--text);font-family:var(--font);font-size:14px;padding:10px 12px;outline:none;transition:.15s}
+input.inp:focus,select.sel:focus,textarea.ta:focus{border-color:var(--acc)}
+select.sel{appearance:none;-webkit-appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%237070a0' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:30px}
+textarea.ta{resize:none;height:68px;line-height:1.4}
+
+.btn-new{white-space:nowrap;background:var(--s3);border:1px solid var(--border);color:var(--acc3);font-size:12px;font-weight:600;padding:10px 12px;border-radius:10px;cursor:pointer;flex-shrink:0}
+.btn-new:active{opacity:.7}
+
+.shoot-btn{width:64px;height:64px;border-radius:50%;border:3px solid var(--acc2);background:var(--acc);display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;transition:.1s;margin-bottom:2px}
+.shoot-btn:active{transform:scale(.92);background:var(--acc2)}
+.shoot-btn svg{pointer-events:none}
+
+/* ── GALLERY ── */
+.gal-head{padding:16px;display:flex;align-items:center;justify-content:space-between}
+.gal-head h2{font-size:16px;font-weight:700}
+.gal-hint{font-size:12px;color:var(--muted)}
+
+.proj-section{margin:0 14px 20px}
+.proj-label{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--s2);border-radius:var(--r) var(--r) 0 0;border:1px solid var(--border);border-bottom:none}
+.proj-name{font-size:14px;font-weight:700;display:flex;align-items:center;gap:8px}
+.proj-cnt{font-size:11px;color:var(--muted);background:var(--s3);padding:3px 8px;border-radius:20px;border:1px solid var(--border)}
+.proj-actions{display:flex;gap:8px}
+
+.photo-grid{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--border);border:1px solid var(--border);border-radius:0 0 var(--r) var(--r);overflow:hidden}
+.photo-card{position:relative;background:var(--s2);cursor:pointer;aspect-ratio:4/3;overflow:hidden}
+.photo-card img{width:100%;height:100%;object-fit:cover;display:block;transition:.2s}
+.photo-card.selected img{opacity:.7}
+.photo-sel-check{position:absolute;top:8px;right:8px;width:24px;height:24px;border-radius:50%;background:var(--acc);display:none;align-items:center;justify-content:center;border:2px solid #fff}
+.photo-card.selected .photo-sel-check{display:flex}
+.photo-meta{position:absolute;bottom:0;left:0;right:0;background:linear-gradient(transparent,rgba(0,0,0,.85));padding:20px 8px 8px;font-size:11px;color:rgba(255,255,255,.9)}
+.photo-meta .loc{color:var(--acc3);font-weight:600;display:flex;align-items:center;gap:3px}
+.photo-meta .desc{margin-top:2px;opacity:.8;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.photo-time{position:absolute;top:8px;left:8px;font-size:10px;background:rgba(0,0,0,.6);color:rgba(255,255,255,.7);padding:2px 6px;border-radius:6px}
+
+.empty-state{padding:50px 20px;text-align:center;color:var(--muted)}
+.empty-state svg{opacity:.25;margin-bottom:14px}
+.empty-state p{font-size:15px;margin-bottom:6px;color:var(--text)}
+.empty-state span{font-size:13px}
+
+/* ── EXPORT SCREEN ── */
+.exp-head{padding:16px 18px 8px}
+.exp-head h2{font-size:16px;font-weight:700;margin-bottom:4px}
+.exp-head p{font-size:13px;color:var(--muted)}
+.exp-proj-list{padding:0 14px}
+.exp-proj-item{background:var(--s1);border:1px solid var(--border);border-radius:var(--r);margin-bottom:12px;overflow:hidden}
+.exp-proj-header{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;cursor:pointer}
+.exp-proj-info{display:flex;align-items:center;gap:10px}
+.exp-proj-ico{width:38px;height:38px;border-radius:10px;background:var(--acc);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.exp-proj-title{font-size:14px;font-weight:700}
+.exp-proj-sub{font-size:12px;color:var(--muted);margin-top:1px}
+.exp-btn{background:var(--acc);border:none;color:#fff;font-size:13px;font-weight:700;padding:9px 16px;border-radius:10px;cursor:pointer;transition:.15s;white-space:nowrap}
+.exp-btn:active{opacity:.7}
+.exp-btn:disabled{background:var(--s3);color:var(--muted);cursor:not-allowed}
+.exp-btn.del{background:var(--s3);color:var(--red);border:1px solid rgba(244,80,106,.2)}
+.exp-thumbs{display:flex;gap:4px;padding:0 14px 14px;overflow-x:auto}
+.exp-thumb{width:56px;height:56px;border-radius:8px;object-fit:cover;flex-shrink:0;border:1px solid var(--border)}
+
+/* ── BOTTOM BAR ── */
+.bottom-bar{position:fixed;bottom:0;left:0;right:0;padding:12px 16px 28px;background:var(--s1);border-top:1px solid var(--border);display:flex;gap:8px;z-index:100}
+.bar-btn{flex:1;padding:13px 0;border-radius:12px;border:none;font-size:13px;font-weight:700;cursor:pointer;transition:.15s}
+.bar-btn.primary{background:var(--acc);color:#fff}
+.bar-btn.primary:active{background:var(--acc2)}
+.bar-btn.secondary{background:var(--s3);color:var(--text);border:1px solid var(--border)}
+.bar-btn.secondary:active{opacity:.7}
+.bar-btn.danger{background:var(--s3);color:var(--red);border:1px solid rgba(244,80,106,.2)}
+.bar-btn:disabled{opacity:.35;cursor:not-allowed}
+
+/* ── MODAL ── */
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:200;display:none;align-items:flex-end;justify-content:center}
+.modal-bg.on{display:flex}
+.modal{background:var(--s1);border-radius:22px 22px 0 0;padding:20px 18px 40px;width:100%;max-width:480px;border-top:1px solid var(--border)}
+.modal h3{font-size:16px;font-weight:700;margin-bottom:4px}
+.modal p{font-size:13px;color:var(--muted);margin-bottom:16px}
+.modal .field{margin-bottom:12px}
+.modal .row{display:flex;gap:10px;margin-top:16px}
+.modal .row button{flex:1;padding:13px;border-radius:12px;border:none;font-size:14px;font-weight:700;cursor:pointer}
+.modal .row .ok{background:var(--acc);color:#fff}
+.modal .row .cancel{background:var(--s3);color:var(--text);border:1px solid var(--border)}
+
+/* ── PHOTO DETAIL ── */
+.detail-bg{position:fixed;inset:0;background:#000;z-index:300;display:none;flex-direction:column}
+.detail-bg.on{display:flex}
+.detail-img{flex:1;object-fit:contain;width:100%}
+.detail-info{background:var(--s1);padding:16px 18px 36px;border-top:1px solid var(--border)}
+.detail-loc{color:var(--acc3);font-size:13px;font-weight:600;margin-bottom:6px;display:flex;align-items:center;gap:5px}
+.detail-desc{font-size:14px;line-height:1.5;color:var(--text)}
+.detail-time{font-size:11px;color:var(--muted);margin-top:8px}
+.detail-head{display:flex;align-items:center;gap:12px;padding:14px 16px;position:absolute;top:0;left:0;right:0}
+.detail-head button{background:rgba(0,0,0,.6);border:none;color:#fff;padding:8px 14px;border-radius:10px;font-size:13px;cursor:pointer}
+.detail-del{margin-left:auto;color:var(--red) !important}
+
+/* ── TOAST ── */
+.toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--s3);border:1px solid var(--border);color:var(--text);padding:10px 18px;border-radius:12px;font-size:13px;font-weight:600;z-index:500;opacity:0;transition:.3s;white-space:nowrap;pointer-events:none}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* ── PROGRESS ── */
+.progress-wrap{position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:400;display:none;align-items:center;justify-content:center;flex-direction:column;gap:14px}
+.progress-wrap.on{display:flex}
+.progress-bar-bg{width:220px;height:6px;background:var(--s3);border-radius:6px;overflow:hidden}
+.progress-bar{height:100%;background:var(--acc);border-radius:6px;transition:.3s;width:0%}
+.progress-label{font-size:13px;color:var(--muted)}
+
+/* ── UTIL ── */
+.sel-toolbar{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;background:var(--s2);border-bottom:1px solid var(--border)}
+.sel-toolbar span{font-size:13px;color:var(--muted)}
+.sel-toolbar button{background:none;border:none;color:var(--acc3);font-size:13px;font-weight:600;cursor:pointer}
+</style>
+</head>
+<body>
+
+<div class="nav">
+  <div class="logo">Foto<em>Reporte</em></div>
+  <div class="nav-count" id="totalCount">0 fotos</div>
+</div>
+
+<div class="tabs">
+  <button class="tab on" onclick="showTab('cam')">📷 Capturar</button>
+  <button class="tab" onclick="showTab('gal')">🖼 Galería</button>
+  <button class="tab" onclick="showTab('exp')">📊 Exportar</button>
+</div>
+
+<!-- ══ CAPTURE ══ -->
+<div id="scrCam" class="scr on">
+  <div class="cam-box">
+    <video id="video" autoplay playsinline muted></video>
+    <div class="cam-corner tl"></div>
+    <div class="cam-corner br"></div>
+    <div class="cam-off" id="camOff">
+      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+      <span>Activar cámara</span>
+    </div>
+  </div>
+  <canvas id="snap"></canvas>
+
+  <div class="cam-ctrl">
+    <div class="left">
+      <div>
+        <label class="lbl">Proyecto / Sesión</label>
+        <div class="proj-row">
+          <select class="sel" id="projSelect" style="flex:1"></select>
+          <button class="btn-new" onclick="openNewProj()">+ Nuevo</button>
+        </div>
+      </div>
+      <div>
+        <label class="lbl">Ubicación</label>
+        <div style="display:flex;gap:8px">
+          <input class="inp" id="locInput" placeholder="Ej: Bodega Norte, Rack A3" style="flex:1">
+          <button onclick="getGPS()" style="background:var(--s3);border:1px solid var(--border);color:var(--acc3);padding:10px 12px;border-radius:10px;cursor:pointer;font-size:16px">📍</button>
+        </div>
+      </div>
+      <div>
+        <label class="lbl">Descripción (opcional)</label>
+        <textarea class="ta" id="descInput" placeholder="¿Qué muestra esta foto?"></textarea>
+      </div>
+    </div>
+    <button class="shoot-btn" id="shootBtn" onclick="takePhoto()">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3" fill="white"/></svg>
+    </button>
+  </div>
+
+  <div id="recentStrip" style="padding:12px 14px 0;display:none">
+    <label class="lbl" style="margin-bottom:8px;display:block">Últimas fotos</label>
+    <div id="recentPhotos" style="display:flex;gap:8px;overflow-x:auto;padding-bottom:4px"></div>
+  </div>
+</div>
+
+<!-- ══ GALLERY ══ -->
+<div id="scrGal" class="scr">
+  <div id="selToolbar" class="sel-toolbar" style="display:none">
+    <span id="selCount">0 seleccionadas</span>
+    <button onclick="cancelSelect()">Cancelar</button>
+  </div>
+  <div class="gal-head">
+    <h2>Mis Fotos</h2>
+    <span class="gal-hint" id="galHint"></span>
+  </div>
+  <div id="galContent"></div>
+
+  <div class="bottom-bar" id="galBar" style="display:none">
+    <button class="bar-btn danger" onclick="deleteSelected()">Eliminar</button>
+    <button class="bar-btn primary" onclick="exportSelected()">Exportar selección</button>
+  </div>
+</div>
+
+<!-- ══ EXPORT ══ -->
+<div id="scrExp" class="scr">
+  <div class="exp-head">
+    <h2>Exportar a PowerPoint</h2>
+    <p>Elige un proyecto para generar el archivo .pptx</p>
+  </div>
+  <div id="expContent" class="exp-proj-list"></div>
+</div>
+
+<!-- ══ MODAL NUEVO PROYECTO ══ -->
+<div class="modal-bg" id="modalProj">
+  <div class="modal">
+    <h3>Nuevo proyecto</h3>
+    <p>Dale un nombre a esta sesión o lugar de trabajo</p>
+    <div class="field">
+      <label class="lbl">Nombre del proyecto</label>
+      <input class="inp" id="newProjName" placeholder="Ej: Inspección Planta 2 — 15 Mar" oninput="this.value=this.value" onkeydown="if(event.key==='Enter')saveNewProj()">
+    </div>
+    <div class="row">
+      <button class="cancel" onclick="closeModal('modalProj')">Cancelar</button>
+      <button class="ok" onclick="saveNewProj()">Crear</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ PHOTO DETAIL ══ -->
+<div class="detail-bg" id="detailView">
+  <div class="detail-head">
+    <button onclick="closeDetail()">← Volver</button>
+    <button class="detail-del" onclick="deleteDetailPhoto()">Eliminar</button>
+  </div>
+  <img class="detail-img" id="detailImg" src="" alt="">
+  <div class="detail-info">
+    <div class="detail-loc" id="detailLoc"></div>
+    <div class="detail-desc" id="detailDesc"></div>
+    <div class="detail-time" id="detailTime"></div>
+  </div>
+</div>
+
+<!-- ══ PROGRESS ══ -->
+<div class="progress-wrap" id="progressWrap">
+  <div style="font-size:15px;font-weight:700">Generando PowerPoint…</div>
+  <div class="progress-bar-bg"><div class="progress-bar" id="progressBar"></div></div>
+  <div class="progress-label" id="progressLabel">Preparando…</div>
+</div>
+
+<!-- ══ TOAST ══ -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════
+//  STATE & STORAGE
+// ═══════════════════════════════════════
+const STORE_KEY = 'fotoreporte_v2';
+let state = { projects: {}, photos: [] };
+let activeTab = 'cam';
+let videoStream = null;
+let selectMode = false;
+let selectedIds = new Set();
+let detailPhotoId = null;
+
+function save() {
+  try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); }
+  catch(e) { toast('⚠️ Almacenamiento lleno. Exporta y limpia.', 4000); }
+}
+
+function load() {
+  const raw = localStorage.getItem(STORE_KEY);
+  if (raw) { try { state = JSON.parse(raw); } catch(e) {} }
+}
+
+function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+
+// ═══════════════════════════════════════
+//  TABS
+// ═══════════════════════════════════════
+function showTab(t) {
+  activeTab = t;
+  document.querySelectorAll('.tab').forEach((b,i)=>b.classList.toggle('on',['cam','gal','exp'][i]===t));
+  document.querySelectorAll('.scr').forEach(s=>s.classList.remove('on'));
+  document.getElementById('scr'+t.charAt(0).toUpperCase()+t.slice(1)).classList.add('on');
+  if (t === 'cam') startCamera();
+  else stopCamera();
+  if (t === 'gal') renderGallery();
+  if (t === 'exp') renderExport();
+  cancelSelect();
+}
+
+// ═══════════════════════════════════════
+//  CAMERA
+// ═══════════════════════════════════════
+async function startCamera() {
+  const vid = document.getElementById('video');
+  const off = document.getElementById('camOff');
+  if (videoStream) { off.style.display='none'; vid.style.display='block'; return; }
+  try {
+    videoStream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode:'environment', width:{ideal:1920}, height:{ideal:1080} }, audio:false });
+    vid.srcObject = videoStream;
+    vid.style.display = 'block';
+    off.style.display = 'none';
+  } catch(e) {
+    off.style.display = 'flex';
+    vid.style.display = 'none';
+    toast('No se pudo activar la cámara');
+  }
+}
+
+function stopCamera() {
+  if (videoStream) { videoStream.getTracks().forEach(t=>t.stop()); videoStream=null; }
+}
+
+function takePhoto() {
+  const projId = document.getElementById('projSelect').value;
+  if (!projId) { toast('⚠️ Crea o selecciona un proyecto primero'); return; }
+
+  const vid = document.getElementById('video');
+  const cvs = document.getElementById('snap');
+  if (!videoStream || !vid.videoWidth) { toast('Activa la cámara primero'); return; }
+
+  // Capture
+  cvs.width = vid.videoWidth;
+  cvs.height = vid.videoHeight;
+  const ctx = cvs.getContext('2d');
+  ctx.drawImage(vid, 0, 0);
+
+  // Compress to reasonable size
+  const dataUrl = cvs.toDataURL('image/jpeg', 0.75);
+
+  const loc = document.getElementById('locInput').value.trim();
+  const desc = document.getElementById('descInput').value.trim();
+  const now = new Date();
+
+  const photo = {
+    id: uid(),
+    projectId: projId,
+    data: dataUrl,
+    location: loc || '',
+    description: desc || '',
+    timestamp: now.toISOString(),
+    timeLabel: now.toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'}),
+    dateLabel: now.toLocaleDateString('es-MX',{day:'2-digit',month:'short',year:'numeric'})
+  };
+
+  state.photos.push(photo);
+  save();
+  updateCount();
+
+  // Flash
+  const shootBtn = document.getElementById('shootBtn');
+  shootBtn.style.background = 'var(--green)';
+  setTimeout(() => shootBtn.style.background = 'var(--acc)', 300);
+
+  // Clear desc, keep location
+  document.getElementById('descInput').value = '';
+  toast(`✓ Foto guardada en "${state.projects[projId]}"`);
+  renderRecentStrip(projId);
+}
+
+function renderRecentStrip(projId) {
+  const strip = document.getElementById('recentStrip');
+  const container = document.getElementById('recentPhotos');
+  const photos = state.photos.filter(p=>p.projectId===projId).slice(-6).reverse();
+  if (!photos.length) { strip.style.display='none'; return; }
+  strip.style.display = 'block';
+  container.innerHTML = photos.map(p=>`
+    <img src="${p.data}" style="width:72px;height:72px;border-radius:10px;object-fit:cover;border:2px solid var(--border);flex-shrink:0" onclick="openDetail('${p.id}')" alt="">
+  `).join('');
+}
+
+// ═══════════════════════════════════════
+//  GPS
+// ═══════════════════════════════════════
+function getGPS() {
+  if (!navigator.geolocation) { toast('GPS no disponible'); return; }
+  toast('📍 Obteniendo ubicación…');
+  navigator.geolocation.getCurrentPosition(
+    pos => {
+      const lat = pos.coords.latitude.toFixed(5);
+      const lon = pos.coords.longitude.toFixed(5);
+      document.getElementById('locInput').value = `${lat}, ${lon}`;
+      toast('✓ Coordenadas capturadas');
+    },
+    () => toast('No se pudo obtener GPS')
+  );
+}
+
+// ═══════════════════════════════════════
+//  PROJECTS
+// ═══════════════════════════════════════
+function renderProjSelect() {
+  const sel = document.getElementById('projSelect');
+  const ids = Object.keys(state.projects);
+  if (!ids.length) {
+    sel.innerHTML = '<option value="">— Sin proyecto —</option>';
+    return;
+  }
+  sel.innerHTML = ids.map(id=>`<option value="${id}">${state.projects[id]}</option>`).join('');
+}
+
+function openNewProj() {
+  document.getElementById('newProjName').value = '';
+  document.getElementById('modalProj').classList.add('on');
+  setTimeout(()=>document.getElementById('newProjName').focus(), 300);
+}
+
+function saveNewProj() {
+  const name = document.getElementById('newProjName').value.trim();
+  if (!name) { toast('Escribe un nombre'); return; }
+  const id = uid();
+  state.projects[id] = name;
+  save();
+  renderProjSelect();
+  document.getElementById('projSelect').value = id;
+  closeModal('modalProj');
+  toast(`✓ Proyecto "${name}" creado`);
+}
+
+// ═══════════════════════════════════════
+//  GALLERY
+// ═══════════════════════════════════════
+function renderGallery() {
+  const cont = document.getElementById('galContent');
+  const hint = document.getElementById('galHint');
+  const projIds = Object.keys(state.projects);
+
+  if (!state.photos.length) {
+    cont.innerHTML = `<div class="empty-state">
+      <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+      <p>Aún no hay fotos</p>
+      <span>Toma fotos desde la pestaña Capturar</span>
+    </div>`;
+    hint.textContent = '';
+    return;
+  }
+
+  hint.textContent = selectMode ? 'Toca para seleccionar' : 'Mantén para seleccionar';
+
+  let html = '';
+  for (const pid of projIds) {
+    const photos = state.photos.filter(p=>p.projectId===pid);
+    if (!photos.length) continue;
+    html += `<div class="proj-section">
+      <div class="proj-label">
+        <div class="proj-name">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--acc2)" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+          ${esc(state.projects[pid])}
+          <span class="proj-cnt">${photos.length} foto${photos.length>1?'s':''}</span>
+        </div>
+      </div>
+      <div class="photo-grid">
+        ${photos.map(p=>`
+          <div class="photo-card${selectedIds.has(p.id)?' selected':''}" id="card_${p.id}"
+            onclick="handleCardClick('${p.id}')"
+            oncontextmenu="startSelect('${p.id}');return false">
+            <img src="${p.data}" alt="" loading="lazy">
+            <div class="photo-sel-check">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg>
+            </div>
+            <div class="photo-time">${p.timeLabel}</div>
+            <div class="photo-meta">
+              ${p.location ? `<div class="loc"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>${esc(p.location)}</div>`:''}
+              ${p.description ? `<div class="desc">${esc(p.description)}</div>`:''}
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    </div>`;
+  }
+
+  // Photos without project
+  const orphans = state.photos.filter(p=>!state.projects[p.projectId]);
+  if (orphans.length) {
+    html += `<div class="proj-section" style="opacity:.6">
+      <div class="proj-label"><div class="proj-name">Sin proyecto <span class="proj-cnt">${orphans.length}</span></div></div>
+      <div class="photo-grid">${orphans.map(p=>`<div class="photo-card" onclick="openDetail('${p.id}')"><img src="${p.data}" alt="" loading="lazy"></div>`).join('')}</div>
+    </div>`;
+  }
+
+  cont.innerHTML = html || `<div class="empty-state"><p>Sin fotos aún</p></div>`;
+}
+
+function handleCardClick(id) {
+  if (selectMode) toggleSelect(id);
+  else openDetail(id);
+}
+
+function startSelect(id) {
+  selectMode = true;
+  document.getElementById('selToolbar').style.display = 'flex';
+  document.getElementById('galBar').style.display = 'flex';
+  document.getElementById('galHint').textContent = 'Toca para seleccionar';
+  toggleSelect(id);
+}
+
+function toggleSelect(id) {
+  if (selectedIds.has(id)) selectedIds.delete(id);
+  else selectedIds.add(id);
+  document.getElementById('selCount').textContent = `${selectedIds.size} seleccionada${selectedIds.size!==1?'s':''}`;
+  const card = document.getElementById('card_'+id);
+  if (card) card.classList.toggle('selected', selectedIds.has(id));
+}
+
+function cancelSelect() {
+  selectMode = false;
+  selectedIds.clear();
+  document.getElementById('selToolbar').style.display = 'none';
+  document.getElementById('galBar').style.display = 'none';
+  if (activeTab === 'gal') renderGallery();
+}
+
+function deleteSelected() {
+  if (!selectedIds.size) return;
+  if (!confirm(`¿Eliminar ${selectedIds.size} foto(s)?`)) return;
+  state.photos = state.photos.filter(p=>!selectedIds.has(p.id));
+  save();
+  updateCount();
+  cancelSelect();
+  renderGallery();
+  toast(`🗑 ${selectedIds.size} foto(s) eliminadas`);
+}
+
+function exportSelected() {
+  if (!selectedIds.size) return;
+  const photos = state.photos.filter(p=>selectedIds.has(p.id));
+  generatePPTX(photos, 'Selección_FotoReporte', false);
+}
+
+// ═══════════════════════════════════════
+//  DETAIL VIEW
+// ═══════════════════════════════════════
+function openDetail(id) {
+  const p = state.photos.find(ph=>ph.id===id);
+  if (!p) return;
+  detailPhotoId = id;
+  document.getElementById('detailImg').src = p.data;
+  document.getElementById('detailLoc').innerHTML = p.location
+    ? `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg> ${esc(p.location)}`
+    : 'Sin ubicación';
+  document.getElementById('detailDesc').textContent = p.description || 'Sin descripción';
+  document.getElementById('detailTime').textContent = `${p.dateLabel} · ${p.timeLabel} · ${state.projects[p.projectId] || 'Sin proyecto'}`;
+  document.getElementById('detailView').classList.add('on');
+}
+
+function closeDetail() {
+  document.getElementById('detailView').classList.remove('on');
+  detailPhotoId = null;
+}
+
+function deleteDetailPhoto() {
+  if (!detailPhotoId) return;
+  if (!confirm('¿Eliminar esta foto?')) return;
+  state.photos = state.photos.filter(p=>p.id!==detailPhotoId);
+  save();
+  updateCount();
+  closeDetail();
+  renderGallery();
+  toast('🗑 Foto eliminada');
+}
+
+// ═══════════════════════════════════════
+//  EXPORT SCREEN
+// ═══════════════════════════════════════
+function renderExport() {
+  const cont = document.getElementById('expContent');
+  const projIds = Object.keys(state.projects);
+  const hasPhotos = projIds.some(id=>state.photos.filter(p=>p.projectId===id).length>0);
+
+  if (!hasPhotos) {
+    cont.innerHTML = `<div class="empty-state" style="padding:60px 20px">
+      <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+      <p>Sin proyectos con fotos</p>
+      <span>Toma fotos y asígnalas a un proyecto</span>
+    </div>`;
+    return;
+  }
+
+  let html = '';
+  for (const pid of projIds) {
+    const photos = state.photos.filter(p=>p.projectId===pid);
+    if (!photos.length) continue;
+    const colors = ['7c6df5','a78bfa','22d3a5','f59e0b','f4506a'];
+    const color = colors[Object.keys(state.projects).indexOf(pid) % colors.length];
+    html += `<div class="exp-proj-item">
+      <div class="exp-proj-header" onclick="toggleExpSection('eps_${pid}')">
+        <div class="exp-proj-info">
+          <div class="exp-proj-ico" style="background:#${color}">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+          </div>
+          <div>
+            <div class="exp-proj-title">${esc(state.projects[pid])}</div>
+            <div class="exp-proj-sub">${photos.length} foto${photos.length!==1?'s':''}</div>
+          </div>
+        </div>
+        <button class="exp-btn" onclick="event.stopPropagation();exportProject('${pid}')">Exportar</button>
+      </div>
+      <div id="eps_${pid}" style="display:none">
+        <div class="exp-thumbs">
+          ${photos.map(p=>`<img class="exp-thumb" src="${p.data}" alt="" loading="lazy">`).join('')}
+        </div>
+        <div style="padding:0 14px 14px;display:flex;gap:8px">
+          <button class="exp-btn del" style="flex:1" onclick="deleteProject('${pid}')">Eliminar proyecto</button>
+          <button class="exp-btn" style="flex:1;background:#${color}" onclick="exportProject('${pid}')">Generar .pptx</button>
+        </div>
+      </div>
+    </div>`;
+  }
+  cont.innerHTML = html;
+}
+
+function toggleExpSection(id) {
+  const el = document.getElementById(id);
+  if (el) el.style.display = el.style.display==='none' ? 'block' : 'none';
+}
+
+function deleteProject(pid) {
+  const name = state.projects[pid];
+  const count = state.photos.filter(p=>p.projectId===pid).length;
+  if (!confirm(`¿Eliminar el proyecto "${name}" y sus ${count} foto(s)?`)) return;
+  state.photos = state.photos.filter(p=>p.projectId!==pid);
+  delete state.projects[pid];
+  save();
+  updateCount();
+  renderProjSelect();
+  renderExport();
+  toast(`🗑 Proyecto "${name}" eliminado`);
+}
+
+function exportProject(pid) {
+  const photos = state.photos.filter(p=>p.projectId===pid);
+  if (!photos.length) { toast('No hay fotos en este proyecto'); return; }
+  const name = state.projects[pid] || 'Proyecto';
+  generatePPTX(photos, name, true, pid);
+}
+
+// ═══════════════════════════════════════
+//  PPTX GENERATION
+// ═══════════════════════════════════════
+async function generatePPTX(photos, projectName, clearAfter, pid) {
+  const wrap = document.getElementById('progressWrap');
+  const bar = document.getElementById('progressBar');
+  const lbl = document.getElementById('progressLabel');
+  wrap.classList.add('on');
+
+  try {
+    const pres = new PptxGenJS();
+    pres.layout = 'LAYOUT_16x9';
+    pres.title = projectName;
+    pres.author = 'FotoReporte';
+
+    // ── TITLE SLIDE ──
+    let titleSlide = pres.addSlide();
+    titleSlide.background = { color: '0e0e16' };
+    titleSlide.addShape(pres.shapes.RECTANGLE, { x:0, y:0, w:10, h:5.625, fill:{ color:'0e0e16' } });
+    // Accent bar left
+    titleSlide.addShape(pres.shapes.RECTANGLE, { x:0, y:0, w:0.12, h:5.625, fill:{ color:'7c6df5' } });
+    titleSlide.addText('FotoReporte', { x:0.4, y:1.6, w:9.2, h:0.5, fontSize:13, color:'a78bfa', bold:true, charSpacing:4 });
+    titleSlide.addText(projectName, { x:0.4, y:2.1, w:9.2, h:1.2, fontSize:38, color:'ededf5', bold:true, fontFace:'Georgia' });
+    titleSlide.addText(`${photos.length} foto${photos.length!==1?'s':''} · ${new Date().toLocaleDateString('es-MX',{day:'2-digit',month:'long',year:'numeric'})}`,
+      { x:0.4, y:3.4, w:9.2, h:0.4, fontSize:14, color:'7070a0' });
+
+    // ── PHOTO SLIDES ──
+    for (let i = 0; i < photos.length; i++) {
+      const p = photos[i];
+      const pct = Math.round((i+1)/photos.length*100);
+      bar.style.width = pct+'%';
+      lbl.textContent = `Procesando foto ${i+1} de ${photos.length}…`;
+      await new Promise(r=>setTimeout(r,10));
+
+      const slide = pres.addSlide();
+      slide.background = { color:'13131c' };
+
+      // Main photo — left 65%
+      slide.addImage({
+        data: p.data.replace(/^data:image\/\w+;base64,/,'image/jpeg;base64,'),
+        x: 0, y: 0, w: 6.5, h: 5.625,
+        sizing: { type:'cover', w:6.5, h:5.625 }
+      });
+
+      // Right panel background
+      slide.addShape(pres.shapes.RECTANGLE, { x:6.5, y:0, w:3.5, h:5.625, fill:{ color:'16161f' } });
+      slide.addShape(pres.shapes.RECTANGLE, { x:6.5, y:0, w:0.04, h:5.625, fill:{ color:'7c6df5' } });
+
+      // Photo number
+      slide.addText(`${i+1} / ${photos.length}`, { x:6.6, y:0.3, w:3.2, h:0.3, fontSize:11, color:'7070a0', bold:true });
+
+      // Project name
+      slide.addText(projectName, { x:6.6, y:0.65, w:3.2, h:0.35, fontSize:12, color:'a78bfa', bold:true });
+
+      // Location
+      if (p.location) {
+        slide.addText('UBICACIÓN', { x:6.6, y:1.2, w:3.2, h:0.25, fontSize:9, color:'7070a0', bold:true, charSpacing:2 });
+        slide.addText(p.location, { x:6.6, y:1.45, w:3.2, h:0.55, fontSize:13, color:'ededf5', bold:true, wrap:true });
+      }
+
+      // Description
+      if (p.description) {
+        const descY = p.location ? 2.2 : 1.3;
+        slide.addText('DESCRIPCIÓN', { x:6.6, y:descY, w:3.2, h:0.25, fontSize:9, color:'7070a0', bold:true, charSpacing:2 });
+        slide.addText(p.description, { x:6.6, y:descY+0.28, w:3.2, h:1.5, fontSize:13, color:'c8c8e0', wrap:true, valign:'top' });
+      }
+
+      // Time stamp bottom
+      slide.addShape(pres.shapes.RECTANGLE, { x:6.5, y:5.1, w:3.5, h:0.525, fill:{ color:'0e0e16' } });
+      slide.addText(`${p.dateLabel}  ·  ${p.timeLabel}`, { x:6.6, y:5.15, w:3.3, h:0.35, fontSize:11, color:'7070a0' });
+    }
+
+    lbl.textContent = 'Guardando archivo…';
+    bar.style.width = '100%';
+
+    const safeName = projectName.replace(/[^\w\s\-áéíóúñÁÉÍÓÚÑ]/g,'').trim().replace(/\s+/g,'_');
+    await pres.writeFile({ fileName: `${safeName}.pptx` });
+
+    wrap.classList.remove('on');
+    toast(`✓ ${projectName}.pptx descargado`, 3500);
+
+    if (clearAfter && pid) {
+      setTimeout(() => {
+        if (confirm(`¿Limpiar las fotos del proyecto "${state.projects[pid]}" ahora que se exportaron?`)) {
+          state.photos = state.photos.filter(p=>p.projectId!==pid);
+          save();
+          updateCount();
+          renderProjSelect();
+          renderExport();
+          toast('🗑 Fotos limpiadas');
+        }
+      }, 800);
+    }
+
+  } catch(e) {
+    wrap.classList.remove('on');
+    console.error(e);
+    toast('❌ Error al generar el PowerPoint');
+  }
+}
+
+// ═══════════════════════════════════════
+//  HELPERS
+// ═══════════════════════════════════════
+function updateCount() {
+  document.getElementById('totalCount').textContent = `${state.photos.length} foto${state.photos.length!==1?'s':''}`;
+}
+
+function toast(msg, dur=2200) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(el._t);
+  el._t = setTimeout(()=>el.classList.remove('show'), dur);
+}
+
+function openModal(id) { document.getElementById(id).classList.add('on'); }
+function closeModal(id) { document.getElementById(id).classList.remove('on'); }
+
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// Close modals on backdrop click
+document.querySelectorAll('.modal-bg').forEach(bg=>{
+  bg.addEventListener('click', e=>{ if(e.target===bg) bg.classList.remove('on'); });
+});
+
+// ═══════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════
+load();
+updateCount();
+renderProjSelect();
+startCamera();
+
+// If no projects yet, auto-open new project modal after short delay
+if (!Object.keys(state.projects).length) {
+  setTimeout(()=>{
+    document.getElementById('newProjName').value = `Inspección ${new Date().toLocaleDateString('es-MX',{day:'2-digit',month:'short'})}`;
+    openModal('modalProj');
+  }, 800);
+}
+</script>
+</body>
+</html>
