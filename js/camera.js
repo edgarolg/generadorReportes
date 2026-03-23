@@ -58,7 +58,6 @@ const Camera = {
     cvs.getContext('2d').drawImage(vid, 0, 0);
 
     const dataUrl   = cvs.toDataURL('image/jpeg', 0.75);
-    const loc       = document.getElementById('locInput').value.trim();
     const desc      = document.getElementById('descInput').value.trim();
     const sgId      = document.getElementById('subgroupSelect').value || null;
     const now       = new Date();
@@ -68,7 +67,6 @@ const Camera = {
       projectId:   projId,
       subgroupId:  sgId,
       data:        dataUrl,
-      location:    loc,
       description: desc,
       timestamp:   now.toISOString(),
       timeLabel:   now.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }),
@@ -109,17 +107,4 @@ const Camera = {
     `).join('');
   },
 
-  getGPS() {
-    if (!navigator.geolocation) { UI.toast('GPS no disponible'); return; }
-    UI.toast('📍 Obteniendo ubicación…');
-    navigator.geolocation.getCurrentPosition(
-      pos => {
-        const lat = pos.coords.latitude.toFixed(5);
-        const lon = pos.coords.longitude.toFixed(5);
-        document.getElementById('locInput').value = `${lat}, ${lon}`;
-        UI.toast('✓ Coordenadas capturadas');
-      },
-      () => UI.toast('No se pudo obtener GPS')
-    );
-  }
 };

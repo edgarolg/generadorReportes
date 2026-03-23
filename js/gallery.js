@@ -109,13 +109,6 @@ const Gallery = {
         </div>
         <div class="photo-time">${p.timeLabel}</div>
         <div class="photo-meta">
-          ${p.location ? `
-            <div class="loc">
-              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
-                <circle cx="12" cy="10" r="3"/>
-              </svg>${UI.esc(p.location)}
-            </div>` : ''}
           ${p.description ? `<div class="desc">${UI.esc(p.description)}</div>` : ''}
         </div>
       </div>`;
@@ -212,13 +205,6 @@ const Gallery = {
 
     const sgName = p.subgroupId && State.subgroups[p.subgroupId]
       ? State.subgroups[p.subgroupId].name : null;
-
-    document.getElementById('detailLoc').innerHTML = p.location
-      ? `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-           <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
-           <circle cx="12" cy="10" r="3"/>
-         </svg> ${UI.esc(p.location)}`
-      : 'Sin ubicación';
 
     document.getElementById('detailDesc').textContent = p.description || 'Sin descripción';
     document.getElementById('detailTime').textContent =
