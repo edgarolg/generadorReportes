@@ -165,7 +165,55 @@
     </div>
   </div>
 
-  <!-- ══ PHOTO DETAIL ══ -->
+  <!-- ══ MODAL: ACCIONES DE FOTO ══ -->
+  <div class="modal-bg" id="modalPhotoActions">
+    <div class="modal" style="padding-bottom:32px">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
+        <img id="actionThumb" src="" alt=""
+          style="width:56px;height:56px;border-radius:8px;object-fit:cover;border:1px solid var(--border);flex-shrink:0">
+        <div>
+          <div style="font-size:14px;font-weight:700" id="actionDesc">—</div>
+          <div style="font-size:11px;color:var(--muted)" id="actionTime">—</div>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <button onclick="Gallery.actionSelect()"
+          style="padding:13px;border-radius:10px;border:1.5px solid var(--border);
+          background:var(--bg);color:var(--text);font-size:14px;font-weight:600;cursor:pointer;text-align:left">
+          ☑ Seleccionar
+        </button>
+        <button onclick="Gallery.actionEditDesc()"
+          style="padding:13px;border-radius:10px;border:1.5px solid var(--border);
+          background:var(--bg);color:var(--text);font-size:14px;font-weight:600;cursor:pointer;text-align:left">
+          ✏️ Editar descripción
+        </button>
+        <button onclick="Gallery.actionDelete()"
+          style="padding:13px;border-radius:10px;border:1.5px solid #ffcccc;
+          background:var(--bg);color:var(--red);font-size:14px;font-weight:600;cursor:pointer;text-align:left">
+          🗑 Eliminar foto
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ MODAL: EDITAR DESCRIPCIÓN ══ -->
+  <div class="modal-bg" id="modalEditDesc">
+    <div class="modal">
+      <h3>Editar descripción</h3>
+      <p>Este texto aparece sobre la foto en el PowerPoint</p>
+      <div class="field">
+        <label class="lbl">Descripción</label>
+        <input class="inp" id="editDescInput" placeholder="Nombre o descripción de la foto"
+          onkeydown="if(event.key==='Enter') Gallery.saveEditDesc()">
+      </div>
+      <div class="row">
+        <button class="cancel" onclick="UI.closeModal('modalEditDesc')">Cancelar</button>
+        <button class="ok"     onclick="Gallery.saveEditDesc()">Guardar</button>
+      </div>
+    </div>
+  </div>
+
+
   <div class="detail-bg" id="detailView">
     <div class="detail-head">
       <button onclick="Gallery.closeDetail()">← Volver</button>

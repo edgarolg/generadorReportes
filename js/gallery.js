@@ -243,10 +243,71 @@ const Gallery = {
     UI.toast('🗑 Foto eliminada');
   },
 
-  // ── Selección múltiple ───────────────
+  // ── Click normal → menú de acciones ─
+  _activePhotoId: null,
+
   _handleClick(id) {
-    if (this.selectMode) this._toggleSelect(id);
-    else this.openDetail(id);
+    if (this.selectMode) { this._toggleSelect(id); return; }
+    const p = State.getPhotoById(id);
+    if (!p) return;
+    this._activePhotoId = id;
+
+    // Rellenar el modal con datos de la foto
+    document.getElementById('actionThumb').src   = p.data;
+    document.getElementById('actionDesc').textContent =
+      p.description || '(sin descripción)';
+    const sgName = p.subgroupId && State.subgroups[p.subgroupId]
+      ? State.subgroups[p.subgroupId].name : null;
+    document.getElementById('actionTime').textContent =
+      [p.timeLabel, p.dateLabel, sgName].filter(Boolean).join(' · ');
+
+    UI.openModal('modalPhotoActions');
+  },
+
+  // ── Opciones del menú ────────────────
+  actionSelect() {
+    UI.closeModal('modalPhotoActions');
+    const id = this._activePhotoId;
+    if (!id) return;
+    // Entrar en modo selección con esta foto ya seleccionada
+    this.selectMode = true;
+    document.getElementById('selToolbar').style.display = 'flex';
+    document.getElementById('galBar').style.display     = 'flex';
+    document.getElementById('galHint').textContent = 'Toca para seleccionar';
+    this.render();
+    this._toggleSelect(id);
+  },
+
+  actionEditDesc() {
+    UI.closeModal('modalPhotoActions');
+    const p = State.getPhotoById(this._activePhotoId);
+    if (!p) return;
+    document.getElementById('editDescInput').value = p.description || '';
+    UI.openModal('modalEditDesc');
+    setTimeout(() => document.getElementById('editDescInput').focus(), 300);
+  },
+
+  saveEditDesc() {
+    const p = State.getPhotoById(this._activePhotoId);
+    if (!p) return;
+    const newDesc = document.getElementById('editDescInput').value.trim();
+    p.description = newDesc;
+    State.save();
+    UI.closeModal('modalEditDesc');
+    this.render();
+    UI.toast('✓ Descripción actualizada');
+  },
+
+  actionDelete() {
+    UI.closeModal('modalPhotoActions');
+    const id = this._activePhotoId;
+    if (!id) return;
+    if (!confirm('¿Eliminar esta foto?')) return;
+    State.removePhoto(id);
+    UI.updateCount();
+    const card = document.getElementById('card_' + id);
+    if (card) card.remove();
+    UI.toast('🗑 Foto eliminada');
   },
 
   _startSelect(id) {
@@ -263,6 +324,9 @@ const Gallery = {
     else this.selectedIds.add(id);
 
     const n = this.selectedIds.size;
+
+    if (n === 0) { this.cancelSelect(); return; }
+
     document.getElementById('selCount').textContent =
       `${n} seleccionada${n !== 1 ? 's' : ''}`;
 
