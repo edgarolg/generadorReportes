@@ -4,6 +4,7 @@
 //  título = nombre del subgrupo,
 //  footer con  descripción opcional por slide o global para todo el proyecto
 // ═══════════════════════════════════════
+
 const MAX_PER_SLIDE = 6;
 
 const Export = {
@@ -29,45 +30,17 @@ const Export = {
       return;
     }
 
-    // ── Bloque de descripciones (encima de todos los proyectos) ──
-    const descBlock = `
-      <div id="descBlock" style="margin:0 0 4px;padding:12px 14px;background:var(--bg);border-bottom:1px solid var(--border)">
-
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-          <span style="font-size:13px;font-weight:700;color:var(--text)">Descripción en el footer</span>
-          <div style="display:flex;gap:6px" id="descToggleGroup">
-            <button id="btnDescGlobal" onclick="Export._setDescMode('global')"
-              class="desc-toggle on">Una para todos</button>
-            <button id="btnDescPer" onclick="Export._setDescMode('per')"
-              class="desc-toggle">Por subgrupo</button>
-          </div>
-        </div>
-
-        <!-- Campo global -->
-        <div id="descGlobalField" style="display:block">
-          <label class="lbl">Descripción para todos los slides</label>
-          <input class="inp" id="descGlobalInput" placeholder="Ej: Revisión semana 12 · Región Norte">
-        </div>
-
-        <!-- Campos por subgrupo — se rellenan por proyecto al exportar -->
-        <div id="descPerField" style="display:none">
-          <p style="font-size:12px;color:var(--muted);margin-bottom:8px">
-            Cada subgrupo tiene su propio campo. Aparece al abrir el proyecto.
-          </p>
-        </div>
-
-      </div>`;
-
-    let html = descBlock + '<div id="projList">';
+    let html = '<div id="projList">';
 
     projIds.forEach((pid, idx) => {
       const photos = State.getPhotosByProject(pid);
       if (!photos.length) return;
 
-      const color = this._colors[idx % this._colors.length];
-      const sgs   = State.getSubgroupsByProject(pid);
+      const color     = this._colors[idx % this._colors.length];
+      const sgs       = State.getSubgroupsByProject(pid);
       const ungrouped = State.getUngroupedPhotos(pid);
 
+      // Resumen de subgrupos
       let subSummary = sgs.map(sg => {
         const c = State.getPhotosBySubgroup(sg.id).length;
         return `<span style="font-size:11px;color:var(--muted);margin-right:8px">${UI.esc(sg.name)} (${c})</span>`;
@@ -76,19 +49,19 @@ const Export = {
         subSummary += `<span style="font-size:11px;color:var(--muted)">Sin subgrupo (${ungrouped.length})</span>`;
       }
 
-      // Campos de descripción por subgrupo (ocultos hasta que el modo sea 'per')
+      // Campos descripción por subgrupo
       const sgDescFields = [
         ...sgs.map(sg => `
-          <div class="sg-desc-field" style="margin-bottom:8px">
+          <div style="margin-bottom:8px">
             <label class="lbl" style="margin-bottom:4px">${UI.esc(sg.name)}</label>
-            <input class="inp" id="desc_${sg.id}"
+            <input class="inp" id="desc_${sg.id}_${pid}"
               placeholder="Descripción para este subgrupo (opcional)"
               style="font-size:13px;padding:8px 10px">
           </div>`),
         ungrouped.length ? `
-          <div class="sg-desc-field" style="margin-bottom:8px">
+          <div style="margin-bottom:8px">
             <label class="lbl" style="margin-bottom:4px">Sin subgrupo</label>
-            <input class="inp" id="desc___none__"
+            <input class="inp" id="desc___none___${pid}"
               placeholder="Descripción para este subgrupo (opcional)"
               style="font-size:13px;padding:8px 10px">
           </div>` : ''
@@ -96,7 +69,9 @@ const Export = {
 
       html += `
         <div class="exp-proj-item">
-          <div class="exp-proj-header" onclick="Export._toggleSection('eps_${pid}')">
+
+          <!-- Header clickeable con flecha -->
+          <div class="exp-proj-header" onclick="Export._toggleSection('eps_${pid}', this)">
             <div class="exp-proj-info">
               <div class="exp-proj-ico" style="background:#${color}">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
@@ -109,24 +84,53 @@ const Export = {
                 <div class="exp-proj-sub">${photos.length} foto${photos.length !== 1 ? 's' : ''} · ${sgs.length} subgrupo${sgs.length !== 1 ? 's' : ''}</div>
               </div>
             </div>
-            <button class="exp-btn"
-              onclick="event.stopPropagation(); Export.exportProject('${pid}')">
-              Exportar
-            </button>
+            <div style="display:flex;align-items:center;gap:10px">
+              <!-- Flecha que rota al abrir -->
+              <svg id="arrow_${pid}" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                stroke="var(--muted)" stroke-width="2.5" style="transition:.2s;flex-shrink:0">
+                <path d="m6 9 6 6 6-6"/>
+              </svg>
+              <button class="exp-btn"
+                onclick="event.stopPropagation(); Export.exportProject('${pid}')">
+                Exportar
+              </button>
+            </div>
           </div>
 
+          <!-- Panel desplegable -->
           <div id="eps_${pid}" style="display:none">
+
             ${subSummary ? `<div style="padding:4px 14px 8px;display:flex;flex-wrap:wrap;gap:2px">${subSummary}</div>` : ''}
 
-            <!-- Campos de descripción por subgrupo (visibles solo en modo 'per') -->
-            <div id="sgDescs_${pid}" class="sg-descs-wrap" style="display:none;padding:4px 14px 8px">
-              ${sgDescFields}
+            <!-- Toggle de descripción por proyecto -->
+            <div style="padding:10px 14px;border-top:1px solid var(--border);border-bottom:1px solid var(--border);background:var(--s1)">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+                <span style="font-size:12px;font-weight:700;color:var(--text)">Descripción en el footer</span>
+                <div style="display:flex;gap:5px">
+                  <button id="btnG_${pid}" onclick="Export._setProjDescMode('${pid}','global')"
+                    class="desc-toggle on">Una para todos</button>
+                  <button id="btnP_${pid}" onclick="Export._setProjDescMode('${pid}','per')"
+                    class="desc-toggle">Por subgrupo</button>
+                </div>
+              </div>
+              <!-- Campo global del proyecto -->
+              <div id="descG_${pid}">
+                <input class="inp" id="descGlobal_${pid}"
+                  placeholder="Descripción para todos los slides (opcional)"
+                  style="font-size:13px;padding:8px 10px">
+              </div>
+              <!-- Campos por subgrupo -->
+              <div id="descP_${pid}" style="display:none;margin-top:8px">
+                ${sgDescFields}
+              </div>
             </div>
 
+            <!-- Miniaturas -->
             <div class="exp-thumbs">
               ${photos.slice(0, 12).map(p => `<img class="exp-thumb" src="${p.data}" alt="" loading="lazy">`).join('')}
               ${photos.length > 12 ? `<div style="width:54px;height:54px;border-radius:7px;background:var(--s2);display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--muted);flex-shrink:0;border:1px solid var(--border)">+${photos.length - 12}</div>` : ''}
             </div>
+
             <div style="padding:0 12px 14px;display:flex;gap:8px">
               <button class="exp-btn del" style="flex:1"
                 onclick="Projects.delete('${pid}')">
@@ -145,57 +149,46 @@ const Export = {
     cont.innerHTML = html;
   },
 
-  // ── Modo de descripción: 'off' | 'global' | 'per' ──
-  _descMode: 'global',
+  // ── Modo por proyecto: 'global' | 'per' ──
+  _projModes: {},  // { [pid]: 'global' | 'per' }
 
-  _setDescMode(mode) {
-    this._descMode = mode;
-    ['global','per'].forEach(m => {
-      const btn = document.getElementById('btnDesc' + m.charAt(0).toUpperCase() + m.slice(1));
-      if (btn) btn.classList.toggle('on', m === mode);
-    });
-    const gf = document.getElementById('descGlobalField');
-    const pf = document.getElementById('descPerField');
-    if (gf) gf.style.display = mode === 'global' ? 'block' : 'none';
-    if (pf) pf.style.display = mode === 'per'    ? 'block' : 'none';
-
-    // Mostrar/ocultar campos por subgrupo en cada proyecto abierto
-    document.querySelectorAll('.sg-descs-wrap').forEach(el => {
-      el.style.display = mode === 'per' ? 'block' : 'none';
-    });
+  _setProjDescMode(pid, mode) {
+    this._projModes[pid] = mode;
+    document.getElementById('btnG_' + pid)?.classList.toggle('on', mode === 'global');
+    document.getElementById('btnP_' + pid)?.classList.toggle('on', mode === 'per');
+    const gField = document.getElementById('descG_' + pid);
+    const pField = document.getElementById('descP_' + pid);
+    if (gField) gField.style.display = mode === 'global' ? 'block' : 'none';
+    if (pField) pField.style.display = mode === 'per'    ? 'block' : 'none';
   },
 
-  _toggleSection(id) {
-    const el = document.getElementById(id);
+  _toggleSection(sectionId, headerEl) {
+    const el   = document.getElementById(sectionId);
+    const pid  = sectionId.replace('eps_', '');
+    const arrow = document.getElementById('arrow_' + pid);
     if (!el) return;
-    const open = el.style.display !== 'none';
-    el.style.display = open ? 'none' : 'block';
-    // Si modo 'per', mostrar/ocultar los campos de esa sección también
-    if (!open && this._descMode === 'per') {
-      const pid = id.replace('eps_', '');
-      const wrap = document.getElementById('sgDescs_' + pid);
-      if (wrap) wrap.style.display = 'block';
-    }
+    const opening = el.style.display === 'none';
+    el.style.display = opening ? 'block' : 'none';
+    if (arrow) arrow.style.transform = opening ? 'rotate(180deg)' : 'rotate(0deg)';
   },
 
-  // ── Recolecta las descripciones según el modo activo ──
+  // ── Recolecta descripciones del proyecto ──
   _collectDescriptions(pid) {
-    if (this._descMode === 'off') return {};
+    const mode = this._projModes[pid] || 'global';
 
-    if (this._descMode === 'global') {
-      const val = (document.getElementById('descGlobalInput')?.value || '').trim();
+    if (mode === 'global') {
+      const val = (document.getElementById('descGlobal_' + pid)?.value || '').trim();
       return { __global__: val };
     }
 
-    // 'per' — recoge un campo por subgrupo
-    const sgs = pid ? State.getSubgroupsByProject(pid) : [];
+    // per — un campo por subgrupo
+    const sgs = State.getSubgroupsByProject(pid);
     const map  = {};
     sgs.forEach(sg => {
-      const val = (document.getElementById('desc_' + sg.id)?.value || '').trim();
+      const val = (document.getElementById(`desc_${sg.id}_${pid}`)?.value || '').trim();
       map[sg.id] = val;
     });
-    // Sin subgrupo
-    const noneVal = (document.getElementById('desc___none__')?.value || '').trim();
+    const noneVal = (document.getElementById(`desc___none___${pid}`)?.value || '').trim();
     if (noneVal) map['__none__'] = noneVal;
     return map;
   },
