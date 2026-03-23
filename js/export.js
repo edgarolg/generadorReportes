@@ -1,13 +1,19 @@
 // ═══════════════════════════════════════
 //  export.js
-//  Pantalla de exportación y generación de .pptx
+//  Exportación estilo "Frescos Soriana":
+//  grid automático, nombre sobre cada foto,
+//  título arriba izquierda con ▶ rojo,
+//  footer rojo con nombre de organización.
 // ═══════════════════════════════════════
 
-const Export = {
-  // Colores por proyecto (rota entre 5)
-  _colors: ['7c6df5', 'a78bfa', '22d3a5', 'f59e0b', 'f4506a'],
+// ── Configura aquí tu organización ─────
+const ORG_NAME = 'Occidente Bajio M&E';
+// ───────────────────────────────────────
 
-  // ── Renderiza la pantalla Exportar ──
+const Export = {
+  _colors: ['CC0000', 'a80000', '009a44', 'd97706', '1d6fbf'],
+
+  // ── Pantalla de exportación ─────────
   render() {
     const cont    = document.getElementById('expContent');
     const projIds = Object.keys(State.projects);
@@ -16,7 +22,7 @@ const Export = {
     if (!hasPhotos) {
       cont.innerHTML = `
         <div class="empty-state" style="padding:60px 20px">
-          <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
+          <svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
             <rect x="2" y="3" width="20" height="14" rx="2"/>
             <path d="M8 21h8M12 17v4"/>
           </svg>
@@ -57,7 +63,7 @@ const Export = {
             <div class="exp-thumbs">
               ${photos.map(p => `<img class="exp-thumb" src="${p.data}" alt="" loading="lazy">`).join('')}
             </div>
-            <div style="padding:0 14px 14px;display:flex;gap:8px">
+            <div style="padding:0 12px 14px;display:flex;gap:8px">
               <button class="exp-btn del" style="flex:1"
                 onclick="Projects.delete('${pid}')">
                 Eliminar proyecto
@@ -74,129 +80,47 @@ const Export = {
     cont.innerHTML = html;
   },
 
-  // ── Abre/cierra el panel de un proyecto ──
   _toggleSection(id) {
     const el = document.getElementById(id);
     if (el) el.style.display = el.style.display === 'none' ? 'block' : 'none';
   },
 
-  // ── Exporta todas las fotos de un proyecto ──
   exportProject(pid) {
     const photos = State.getPhotosByProject(pid);
     if (!photos.length) { UI.toast('No hay fotos en este proyecto'); return; }
     this.generate(photos, State.projects[pid], true, pid);
   },
 
-  // ── Genera el archivo .pptx ─────────
+  // ══════════════════════════════════════
+  //  GENERACIÓN DEL .pptx
+  // ══════════════════════════════════════
   async generate(photos, projectName, clearAfter = false, pid = null) {
     UI.showProgress();
     UI.setProgress(0, 'Preparando…');
 
     try {
       const pres  = new PptxGenJS();
-      pres.layout = 'LAYOUT_16x9';
+      pres.layout = 'LAYOUT_16x9';   // 10" × 5.625"
       pres.title  = projectName;
-      pres.author = 'FotoReporte';
+      pres.author = ORG_NAME;
 
       // ── Portada ──────────────────────
-      const cover = pres.addSlide();
-      cover.background = { color: '0e0e16' };
-      cover.addShape(pres.shapes.RECTANGLE, {
-        x: 0, y: 0, w: 0.12, h: 5.625,
-        fill: { color: '7c6df5' }
-      });
-      cover.addText('FOTOREPORTE', {
-        x: 0.4, y: 1.6, w: 9.2, h: 0.4,
-        fontSize: 11, color: 'a78bfa', bold: true, charSpacing: 5
-      });
-      cover.addText(projectName, {
-        x: 0.4, y: 2.05, w: 9.2, h: 1.3,
-        fontSize: 38, color: 'ededf5', bold: true, fontFace: 'Georgia', wrap: true
-      });
-      cover.addText(
-        `${photos.length} foto${photos.length !== 1 ? 's' : ''} · ` +
-        new Date().toLocaleDateString('es-MX', { day: '2-digit', month: 'long', year: 'numeric' }),
-        { x: 0.4, y: 3.45, w: 9.2, h: 0.4, fontSize: 13, color: '7070a0' }
-      );
+      this._addCoverSlide(pres, projectName, photos.length);
+      UI.setProgress(5, 'Portada lista…');
 
-      // ── Diapositiva por foto ─────────
-      for (let i = 0; i < photos.length; i++) {
-        const p   = photos[i];
-        const pct = Math.round((i + 1) / photos.length * 100);
-        UI.setProgress(pct, `Procesando foto ${i + 1} de ${photos.length}…`);
-        await new Promise(r => setTimeout(r, 10)); // Deja respirar al browser
+      // ── Diapositivas de fotos ────────
+      const perSlide = this._photosPerSlide(photos.length);
+      const pages    = this._chunk(photos, perSlide);
 
-        const slide = pres.addSlide();
-        slide.background = { color: '13131c' };
-
-        // Foto principal (65% izquierdo)
-        slide.addImage({
-          data: p.data.replace(/^data:image\/\w+;base64,/, 'image/jpeg;base64,'),
-          x: 0, y: 0, w: 6.5, h: 5.625,
-          sizing: { type: 'cover', w: 6.5, h: 5.625 }
-        });
-
-        // Panel derecho
-        slide.addShape(pres.shapes.RECTANGLE, {
-          x: 6.5, y: 0, w: 3.5, h: 5.625,
-          fill: { color: '16161f' }
-        });
-        // Línea separadora
-        slide.addShape(pres.shapes.RECTANGLE, {
-          x: 6.5, y: 0, w: 0.04, h: 5.625,
-          fill: { color: '7c6df5' }
-        });
-
-        // Contador
-        slide.addText(`${i + 1} / ${photos.length}`, {
-          x: 6.6, y: 0.28, w: 3.2, h: 0.3,
-          fontSize: 11, color: '7070a0', bold: true
-        });
-
-        // Nombre del proyecto
-        slide.addText(projectName, {
-          x: 6.6, y: 0.62, w: 3.2, h: 0.35,
-          fontSize: 12, color: 'a78bfa', bold: true, wrap: true
-        });
-
-        // Ubicación
-        let nextY = 1.15;
-        if (p.location) {
-          slide.addText('UBICACIÓN', {
-            x: 6.6, y: nextY, w: 3.2, h: 0.22,
-            fontSize: 9, color: '7070a0', bold: true, charSpacing: 2
-          });
-          slide.addText(p.location, {
-            x: 6.6, y: nextY + 0.24, w: 3.2, h: 0.55,
-            fontSize: 13, color: 'ededf5', bold: true, wrap: true
-          });
-          nextY += 0.95;
-        }
-
-        // Descripción
-        if (p.description) {
-          slide.addText('DESCRIPCIÓN', {
-            x: 6.6, y: nextY, w: 3.2, h: 0.22,
-            fontSize: 9, color: '7070a0', bold: true, charSpacing: 2
-          });
-          slide.addText(p.description, {
-            x: 6.6, y: nextY + 0.24, w: 3.2, h: 1.6,
-            fontSize: 13, color: 'c8c8e0', wrap: true, valign: 'top'
-          });
-        }
-
-        // Fecha/hora — pie del panel
-        slide.addShape(pres.shapes.RECTANGLE, {
-          x: 6.5, y: 5.1, w: 3.5, h: 0.525,
-          fill: { color: '0e0e16' }
-        });
-        slide.addText(`${p.dateLabel}  ·  ${p.timeLabel}`, {
-          x: 6.6, y: 5.15, w: 3.3, h: 0.35,
-          fontSize: 11, color: '7070a0'
-        });
+      for (let pi = 0; pi < pages.length; pi++) {
+        const pagePhotos = pages[pi];
+        const pct = 5 + Math.round((pi + 1) / pages.length * 90);
+        UI.setProgress(pct, `Slide ${pi + 1} de ${pages.length}…`);
+        await new Promise(r => setTimeout(r, 10));
+        this._addPhotoSlide(pres, pagePhotos, projectName, pi + 1, pages.length);
       }
 
-      UI.setProgress(100, 'Guardando archivo…');
+      UI.setProgress(100, 'Guardando…');
 
       const safeName = projectName
         .replace(/[^\w\s\-áéíóúñÁÉÍÓÚÑ]/g, '')
@@ -204,11 +128,9 @@ const Export = {
         .replace(/\s+/g, '_');
 
       await pres.writeFile({ fileName: `${safeName}.pptx` });
-
       UI.hideProgress();
       UI.toast(`✓ ${safeName}.pptx descargado`, 3500);
 
-      // Ofrecer limpiar el proyecto exportado
       if (clearAfter && pid) {
         setTimeout(() => {
           if (confirm(`¿Limpiar las fotos de "${State.projects[pid]}" ahora que se exportaron?`)) {
@@ -226,5 +148,191 @@ const Export = {
       console.error(e);
       UI.toast('❌ Error al generar el PowerPoint');
     }
+  },
+
+  // ── Portada ─────────────────────────
+  _addCoverSlide(pres, projectName, totalPhotos) {
+    const s = pres.addSlide();
+    s.background = { color: 'FFFFFF' };
+
+    // Franja roja izquierda
+    s.addShape(pres.shapes.RECTANGLE, {
+      x: 0, y: 0, w: 0.18, h: 5.625,
+      fill: { color: 'CC0000' }
+    });
+
+    // Título principal
+    s.addText(projectName, {
+      x: 0.35, y: 1.5, w: 6.8, h: 1.4,
+      fontSize: 36, color: '1a1a1a', bold: true,
+      fontFace: 'Calibri', wrap: true, valign: 'middle'
+    });
+
+    // Subtítulo — fotos + fecha
+    s.addText(
+      `${totalPhotos} foto${totalPhotos !== 1 ? 's' : ''} · ` +
+      new Date().toLocaleDateString('es-MX', { day: '2-digit', month: 'long', year: 'numeric' }),
+      { x: 0.35, y: 3.05, w: 6.8, h: 0.4, fontSize: 14, color: '888888', fontFace: 'Calibri' }
+    );
+
+    // Nombre de organización
+    s.addText(ORG_NAME, {
+      x: 0.35, y: 3.55, w: 6.8, h: 0.35,
+      fontSize: 13, color: 'CC0000', bold: true, fontFace: 'Calibri'
+    });
+
+    // Footer rojo
+    this._addFooter(s, pres);
+  },
+
+  // ── Slide de fotos ───────────────────
+  _addPhotoSlide(pres, photos, projectName, pageNum, totalPages) {
+    const s = pres.addSlide();
+    s.background = { color: 'FFFFFF' };
+
+    const SLIDE_W  = 10;
+    const SLIDE_H  = 5.625;
+    const HEADER_H = 0.5;
+    const FOOTER_H = 0.42;
+    const CONTENT_H = SLIDE_H - HEADER_H - FOOTER_H;
+    const GAP      = 0.06;
+    const NAME_H   = 0.26;
+    const MARGIN   = 0.1;
+
+    const n = photos.length;
+    const { cols, rows } = this._gridLayout(n);
+
+    const totalGapW = GAP * (cols - 1) + MARGIN * 2;
+    const totalGapH = GAP * (rows - 1);
+    const cellW = (SLIDE_W - totalGapW) / cols;
+    const cellH = (CONTENT_H - totalGapH) / rows;
+    const imgH  = cellH - NAME_H;
+
+    // ── Header gris ──────────────────
+    s.addShape(pres.shapes.RECTANGLE, {
+      x: 0, y: 0, w: SLIDE_W, h: HEADER_H,
+      fill: { color: 'f2f2f2' }
+    });
+    // Línea roja inferior del header
+    s.addShape(pres.shapes.RECTANGLE, {
+      x: 0, y: HEADER_H - 0.04, w: SLIDE_W, h: 0.04,
+      fill: { color: 'CC0000' }
+    });
+    // Rectángulo rojo pequeño simulando ▶
+    s.addShape(pres.shapes.RECTANGLE, {
+      x: 0.1, y: 0.1, w: 0.08, h: HEADER_H - 0.2,
+      fill: { color: 'CC0000' }
+    });
+    // Título
+    s.addText(projectName.toUpperCase(), {
+      x: 0.26, y: 0.05, w: SLIDE_W - 1.4, h: HEADER_H - 0.08,
+      fontSize: 13, color: '1a1a1a', bold: true,
+      fontFace: 'Calibri', valign: 'middle'
+    });
+    // Numeración
+    if (totalPages > 1) {
+      s.addText(`${pageNum} / ${totalPages}`, {
+        x: SLIDE_W - 1.1, y: 0.05, w: 1.0, h: HEADER_H - 0.08,
+        fontSize: 10, color: '888888', fontFace: 'Calibri',
+        align: 'right', valign: 'middle'
+      });
+    }
+
+    // ── Fotos en grid ─────────────────
+    for (let i = 0; i < n; i++) {
+      const p   = photos[i];
+      const col = i % cols;
+      const row = Math.floor(i / cols);
+      const x   = MARGIN + col * (cellW + GAP);
+      const y   = HEADER_H + row * (cellH + GAP);
+
+      // Nombre / descripción encima de la foto
+      const label = p.description || p.location || `Foto ${i + 1}`;
+      const nameFontSize = cols <= 2 ? 12 : cols === 3 ? 10 : 9;
+
+      s.addText(label, {
+        x, y,
+        w: cellW, h: NAME_H,
+        fontSize: nameFontSize,
+        color: '1a1a1a', bold: true,
+        fontFace: 'Calibri', align: 'center', valign: 'middle'
+      });
+
+      // Foto
+      s.addImage({
+        data: p.data.replace(/^data:image\/\w+;base64,/, 'image/jpeg;base64,'),
+        x,
+        y: y + NAME_H,
+        w: cellW,
+        h: imgH,
+        sizing: { type: 'cover', w: cellW, h: imgH }
+      });
+
+      // Timestamp pequeño sobre la foto (esquina inferior derecha)
+      if (p.timeLabel && imgH > 0.5) {
+        s.addText(`${p.dateLabel}  ${p.timeLabel}`, {
+          x: x + 0.04,
+          y: y + NAME_H + imgH - 0.2,
+          w: cellW - 0.08,
+          h: 0.18,
+          fontSize: 7,
+          color: 'FFFFFF',
+          fontFace: 'Calibri',
+          align: 'right'
+        });
+      }
+    }
+
+    // ── Footer ───────────────────────
+    this._addFooter(s, pres);
+  },
+
+  // ── Footer rojo ─────────────────────
+  _addFooter(slide, pres) {
+    const SLIDE_W  = 10;
+    const SLIDE_H  = 5.625;
+    const FOOTER_H = 0.42;
+    const y = SLIDE_H - FOOTER_H;
+
+    slide.addShape(pres.shapes.RECTANGLE, {
+      x: 0, y, w: SLIDE_W, h: FOOTER_H,
+      fill: { color: 'CC0000' }
+    });
+    slide.addText(ORG_NAME, {
+      x: 0.2, y: y + 0.04, w: 7.5, h: FOOTER_H - 0.08,
+      fontSize: 12, color: 'FFFFFF', bold: true,
+      fontFace: 'Calibri', valign: 'middle'
+    });
+  },
+
+  // ── Fotos por slide según total ──────
+  _photosPerSlide(total) {
+    if (total <= 1) return 1;
+    if (total <= 2) return 2;
+    if (total <= 3) return 3;
+    if (total <= 4) return 4;
+    if (total <= 6) return 6;
+    if (total <= 8) return 8;
+    return 9;
+  },
+
+  // ── Layout del grid ──────────────────
+  _gridLayout(n) {
+    if (n === 1) return { cols: 1, rows: 1 };
+    if (n === 2) return { cols: 2, rows: 1 };
+    if (n === 3) return { cols: 3, rows: 1 };
+    if (n === 4) return { cols: 2, rows: 2 };
+    if (n <= 6)  return { cols: 3, rows: 2 };
+    if (n <= 8)  return { cols: 4, rows: 2 };
+    return       { cols: 3, rows: 3 };
+  },
+
+  // ── Divide array en páginas ──────────
+  _chunk(arr, size) {
+    const chunks = [];
+    for (let i = 0; i < arr.length; i += size) {
+      chunks.push(arr.slice(i, i + size));
+    }
+    return chunks;
   }
 };
