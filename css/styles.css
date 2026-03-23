@@ -739,3 +739,32 @@ textarea.ta {
 }
 
 .progress-label { font-size: 13px; color: var(--muted); }
+
+/* ═══════════════════════════════════════
+   DESCRIPTION TOGGLE (pantalla Exportar)
+═══════════════════════════════════════ */
+.desc-toggle {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 6px 10px;
+  border-radius: 7px;
+  border: 1.5px solid var(--border);
+  background: var(--bg);
+  color: var(--muted);
+  cursor: pointer;
+  transition: .15s;
+  white-space: nowrap;
+}
+
+.desc-toggle.on {
+  background: var(--acc);
+  color: #fff;
+  border-color: var(--acc);
+}
+
+.desc-toggle:active { opacity: .75; }
+
+.sg-descs-wrap {
+  border-top: 1px solid var(--border);
+  padding-top: 10px !important;
+}

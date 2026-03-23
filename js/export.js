@@ -1,14 +1,17 @@
 // ═══════════════════════════════════════
 //  export.js
 //  Un slide por subgrupo, paginación automática,
-//  título = nombre del subgrupo
+//  título = nombre del subgrupo,
+//  footer con ORG_NAME + descripción opcional
 // ═══════════════════════════════════════
 
-const ORG_NAME   = 'Occidente Bajio M&E';
-const MAX_PER_SLIDE = 6;   // máximo de fotos por slide dentro de un subgrupo
+const ORG_NAME      = 'Occidente Bajio M&E';
+const MAX_PER_SLIDE = 6;
 
 const Export = {
   _colors: ['CC0000', 'a80000', '009a44', 'd97706', '1d6fbf'],
+
+  // ══ PANTALLA EXPORTAR ════════════════
 
   render() {
     const cont    = document.getElementById('expContent');
@@ -28,7 +31,37 @@ const Export = {
       return;
     }
 
-    let html = '';
+    // ── Bloque de descripciones (encima de todos los proyectos) ──
+    const descBlock = `
+      <div id="descBlock" style="margin:0 0 4px;padding:12px 14px;background:var(--bg);border-bottom:1px solid var(--border)">
+
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+          <span style="font-size:13px;font-weight:700;color:var(--text)">Descripción en el footer</span>
+          <div style="display:flex;gap:6px" id="descToggleGroup">
+            <button id="btnDescGlobal" onclick="Export._setDescMode('global')"
+              class="desc-toggle on">Una para todos</button>
+            <button id="btnDescPer" onclick="Export._setDescMode('per')"
+              class="desc-toggle">Por subgrupo</button>
+          </div>
+        </div>
+
+        <!-- Campo global -->
+        <div id="descGlobalField" style="display:block">
+          <label class="lbl">Descripción para todos los slides</label>
+          <input class="inp" id="descGlobalInput" placeholder="Ej: Revisión semana 12 · Región Norte">
+        </div>
+
+        <!-- Campos por subgrupo — se rellenan por proyecto al exportar -->
+        <div id="descPerField" style="display:none">
+          <p style="font-size:12px;color:var(--muted);margin-bottom:8px">
+            Cada subgrupo tiene su propio campo. Aparece al abrir el proyecto.
+          </p>
+        </div>
+
+      </div>`;
+
+    let html = descBlock + '<div id="projList">';
+
     projIds.forEach((pid, idx) => {
       const photos = State.getPhotosByProject(pid);
       if (!photos.length) return;
@@ -37,17 +70,31 @@ const Export = {
       const sgs   = State.getSubgroupsByProject(pid);
       const ungrouped = State.getUngroupedPhotos(pid);
 
-      // Resumen de subgrupos para mostrar en la tarjeta
-      let subSummary = '';
-      if (sgs.length) {
-        subSummary = sgs.map(sg => {
-          const c = State.getPhotosBySubgroup(sg.id).length;
-          return `<span style="font-size:11px;color:var(--muted);margin-right:8px">${UI.esc(sg.name)} (${c})</span>`;
-        }).join('');
-        if (ungrouped.length) {
-          subSummary += `<span style="font-size:11px;color:var(--muted)">Sin subgrupo (${ungrouped.length})</span>`;
-        }
+      let subSummary = sgs.map(sg => {
+        const c = State.getPhotosBySubgroup(sg.id).length;
+        return `<span style="font-size:11px;color:var(--muted);margin-right:8px">${UI.esc(sg.name)} (${c})</span>`;
+      }).join('');
+      if (ungrouped.length) {
+        subSummary += `<span style="font-size:11px;color:var(--muted)">Sin subgrupo (${ungrouped.length})</span>`;
       }
+
+      // Campos de descripción por subgrupo (ocultos hasta que el modo sea 'per')
+      const sgDescFields = [
+        ...sgs.map(sg => `
+          <div class="sg-desc-field" style="margin-bottom:8px">
+            <label class="lbl" style="margin-bottom:4px">${UI.esc(sg.name)}</label>
+            <input class="inp" id="desc_${sg.id}"
+              placeholder="Descripción para este subgrupo (opcional)"
+              style="font-size:13px;padding:8px 10px">
+          </div>`),
+        ungrouped.length ? `
+          <div class="sg-desc-field" style="margin-bottom:8px">
+            <label class="lbl" style="margin-bottom:4px">Sin subgrupo</label>
+            <input class="inp" id="desc___none__"
+              placeholder="Descripción para este subgrupo (opcional)"
+              style="font-size:13px;padding:8px 10px">
+          </div>` : ''
+      ].join('');
 
       html += `
         <div class="exp-proj-item">
@@ -71,7 +118,13 @@ const Export = {
           </div>
 
           <div id="eps_${pid}" style="display:none">
-            ${subSummary ? `<div style="padding:4px 14px 10px;display:flex;flex-wrap:wrap;gap:2px">${subSummary}</div>` : ''}
+            ${subSummary ? `<div style="padding:4px 14px 8px;display:flex;flex-wrap:wrap;gap:2px">${subSummary}</div>` : ''}
+
+            <!-- Campos de descripción por subgrupo (visibles solo en modo 'per') -->
+            <div id="sgDescs_${pid}" class="sg-descs-wrap" style="display:none;padding:4px 14px 8px">
+              ${sgDescFields}
+            </div>
+
             <div class="exp-thumbs">
               ${photos.slice(0, 12).map(p => `<img class="exp-thumb" src="${p.data}" alt="" loading="lazy">`).join('')}
               ${photos.length > 12 ? `<div style="width:54px;height:54px;border-radius:7px;background:var(--s2);display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--muted);flex-shrink:0;border:1px solid var(--border)">+${photos.length - 12}</div>` : ''}
@@ -90,24 +143,76 @@ const Export = {
         </div>`;
     });
 
+    html += '</div>';
     cont.innerHTML = html;
+  },
+
+  // ── Modo de descripción: 'off' | 'global' | 'per' ──
+  _descMode: 'global',
+
+  _setDescMode(mode) {
+    this._descMode = mode;
+    ['global','per'].forEach(m => {
+      const btn = document.getElementById('btnDesc' + m.charAt(0).toUpperCase() + m.slice(1));
+      if (btn) btn.classList.toggle('on', m === mode);
+    });
+    const gf = document.getElementById('descGlobalField');
+    const pf = document.getElementById('descPerField');
+    if (gf) gf.style.display = mode === 'global' ? 'block' : 'none';
+    if (pf) pf.style.display = mode === 'per'    ? 'block' : 'none';
+
+    // Mostrar/ocultar campos por subgrupo en cada proyecto abierto
+    document.querySelectorAll('.sg-descs-wrap').forEach(el => {
+      el.style.display = mode === 'per' ? 'block' : 'none';
+    });
   },
 
   _toggleSection(id) {
     const el = document.getElementById(id);
-    if (el) el.style.display = el.style.display === 'none' ? 'block' : 'none';
+    if (!el) return;
+    const open = el.style.display !== 'none';
+    el.style.display = open ? 'none' : 'block';
+    // Si modo 'per', mostrar/ocultar los campos de esa sección también
+    if (!open && this._descMode === 'per') {
+      const pid = id.replace('eps_', '');
+      const wrap = document.getElementById('sgDescs_' + pid);
+      if (wrap) wrap.style.display = 'block';
+    }
+  },
+
+  // ── Recolecta las descripciones según el modo activo ──
+  _collectDescriptions(pid) {
+    if (this._descMode === 'off') return {};
+
+    if (this._descMode === 'global') {
+      const val = (document.getElementById('descGlobalInput')?.value || '').trim();
+      return { __global__: val };
+    }
+
+    // 'per' — recoge un campo por subgrupo
+    const sgs = pid ? State.getSubgroupsByProject(pid) : [];
+    const map  = {};
+    sgs.forEach(sg => {
+      const val = (document.getElementById('desc_' + sg.id)?.value || '').trim();
+      map[sg.id] = val;
+    });
+    // Sin subgrupo
+    const noneVal = (document.getElementById('desc___none__')?.value || '').trim();
+    if (noneVal) map['__none__'] = noneVal;
+    return map;
   },
 
   exportProject(pid) {
     const photos = State.getPhotosByProject(pid);
     if (!photos.length) { UI.toast('No hay fotos en este proyecto'); return; }
-    this.generate(photos, State.projects[pid], true, pid);
+    const descs = this._collectDescriptions(pid);
+    this.generate(photos, State.projects[pid], true, pid, descs);
   },
 
   // ══════════════════════════════════════
   //  GENERACIÓN DEL .pptx
   // ══════════════════════════════════════
-  async generate(photos, projectName, clearAfter = false, pid = null) {
+  async generate(photos, projectName, clearAfter = false, pid = null, descs = {}) {
     UI.showProgress();
     UI.setProgress(0, 'Preparando…');
 
@@ -117,13 +222,10 @@ const Export = {
       pres.title  = projectName;
       pres.author = ORG_NAME;
 
-      // ── Portada ──────────────────────
-      this._addCoverSlide(pres, projectName, photos, pid);
+      this._addCoverSlide(pres, projectName, photos, pid, descs);
       UI.setProgress(5, 'Portada lista…');
 
-      // ── Agrupar fotos por subgrupo ───
-      // Orden: subgrupos en orden de creación, luego sin subgrupo
-      const sections = this._buildSections(photos, pid);
+      const sections    = this._buildSections(photos, pid, descs);
       const totalSlides = sections.reduce((acc, s) => acc + s.pages.length, 0);
       let slidesDone = 0;
 
@@ -138,7 +240,7 @@ const Export = {
             ? `${section.title} (${pi + 1}/${section.pages.length})`
             : section.title;
 
-          this._addPhotoSlide(pres, section.pages[pi], pageLabel);
+          this._addPhotoSlide(pres, section.pages[pi], pageLabel, section.footerDesc);
         }
       }
 
@@ -172,31 +274,34 @@ const Export = {
     }
   },
 
-  // ── Construye secciones [{title, pages[]}] ──
-  _buildSections(photos, pid) {
-    const sections = [];
+  // ── Construye secciones, añade footerDesc a cada una ──
+  _buildSections(photos, pid, descs = {}) {
+    const sections  = [];
+    const isGlobal  = '__global__' in descs;
+    const globalVal = descs['__global__'] || '';
+
+    const makeDesc = (key) => isGlobal ? globalVal : (descs[key] || '');
 
     if (pid) {
-      // Subgrupos del proyecto en orden
       const sgs = State.getSubgroupsByProject(pid);
       for (const sg of sgs) {
         const sgPhotos = photos.filter(p => p.subgroupId === sg.id);
         if (!sgPhotos.length) continue;
         sections.push({
-          title: sg.name,
-          pages: this._chunk(sgPhotos, MAX_PER_SLIDE)
+          title:      sg.name,
+          pages:      this._chunk(sgPhotos, MAX_PER_SLIDE),
+          footerDesc: makeDesc(sg.id)
         });
       }
-      // Fotos sin subgrupo al final
       const ungrouped = photos.filter(p => !p.subgroupId);
       if (ungrouped.length) {
         sections.push({
-          title: 'Sin subgrupo',
-          pages: this._chunk(ungrouped, MAX_PER_SLIDE)
+          title:      'Sin subgrupo',
+          pages:      this._chunk(ungrouped, MAX_PER_SLIDE),
+          footerDesc: makeDesc('__none__')
         });
       }
     } else {
-      // Exportación de selección — agrupar por subgroupId
       const bySubgroup = {};
       photos.forEach(p => {
         const key = p.subgroupId || '__none__';
@@ -207,20 +312,27 @@ const Export = {
         const title = key === '__none__'
           ? 'Selección'
           : (State.subgroups[key]?.name || 'Subgrupo');
-        sections.push({ title, pages: this._chunk(ps, MAX_PER_SLIDE) });
+        sections.push({
+          title,
+          pages:      this._chunk(ps, MAX_PER_SLIDE),
+          footerDesc: makeDesc(key)
+        });
       });
     }
 
-    // Si no hay ninguna sección (todo sin subgrupo y sin pid), crear una genérica
     if (!sections.length) {
-      sections.push({ title: projectName || 'Fotos', pages: this._chunk(photos, MAX_PER_SLIDE) });
+      sections.push({
+        title:      projectName || 'Fotos',
+        pages:      this._chunk(photos, MAX_PER_SLIDE),
+        footerDesc: globalVal
+      });
     }
 
     return sections;
   },
 
   // ── Portada ─────────────────────────
-  _addCoverSlide(pres, projectName, photos, pid) {
+  _addCoverSlide(pres, projectName, photos, pid, descs = {}) {
     const s = pres.addSlide();
     s.background = { color: 'FFFFFF' };
 
@@ -237,7 +349,6 @@ const Export = {
       fontFace: 'Calibri', wrap: true, valign: 'middle'
     });
 
-    // Subgrupos como lista compacta
     if (sgs.length) {
       const sgList = sgs
         .map(sg => `${sg.name} (${State.getPhotosBySubgroup(sg.id).length})`)
@@ -259,22 +370,24 @@ const Export = {
       fontSize: 12, color: 'CC0000', bold: true, fontFace: 'Calibri'
     });
 
-    this._addFooter(s, pres);
+    // En la portada mostramos la descripción global si existe
+    const globalDesc = descs['__global__'] || '';
+    this._addFooter(s, pres, globalDesc);
   },
 
   // ── Slide de fotos ───────────────────
-  _addPhotoSlide(pres, photos, slideTitle) {
+  _addPhotoSlide(pres, photos, slideTitle, footerDesc = '') {
     const s = pres.addSlide();
     s.background = { color: 'FFFFFF' };
 
-    const SLIDE_W  = 10;
-    const SLIDE_H  = 5.625;
-    const HEADER_H = 0.5;
-    const FOOTER_H = 0.42;
+    const SLIDE_W   = 10;
+    const SLIDE_H   = 5.625;
+    const HEADER_H  = 0.5;
+    const FOOTER_H  = 0.42;
     const CONTENT_H = SLIDE_H - HEADER_H - FOOTER_H;
-    const GAP      = 0.06;
-    const NAME_H   = 0.26;
-    const MARGIN   = 0.1;
+    const GAP       = 0.06;
+    const NAME_H    = 0.26;
+    const MARGIN    = 0.1;
 
     const n = photos.length;
     const { cols, rows } = this._gridLayout(n);
@@ -283,18 +396,15 @@ const Export = {
     const cellH = (CONTENT_H - GAP * (rows - 1)) / rows;
     const imgH  = cellH - NAME_H;
 
-    // ── Header ──────────────────────
+    // Header
     s.addShape(pres.shapes.RECTANGLE, {
-      x: 0, y: 0, w: SLIDE_W, h: HEADER_H,
-      fill: { color: 'f2f2f2' }
+      x: 0, y: 0, w: SLIDE_W, h: HEADER_H, fill: { color: 'f2f2f2' }
     });
     s.addShape(pres.shapes.RECTANGLE, {
-      x: 0, y: HEADER_H - 0.04, w: SLIDE_W, h: 0.04,
-      fill: { color: 'CC0000' }
+      x: 0, y: HEADER_H - 0.04, w: SLIDE_W, h: 0.04, fill: { color: 'CC0000' }
     });
     s.addShape(pres.shapes.RECTANGLE, {
-      x: 0.1, y: 0.1, w: 0.08, h: HEADER_H - 0.2,
-      fill: { color: 'CC0000' }
+      x: 0.1, y: 0.1, w: 0.08, h: HEADER_H - 0.2, fill: { color: 'CC0000' }
     });
     s.addText(slideTitle.toUpperCase(), {
       x: 0.26, y: 0.05, w: SLIDE_W - 0.36, h: HEADER_H - 0.08,
@@ -302,16 +412,14 @@ const Export = {
       fontFace: 'Calibri', valign: 'middle'
     });
 
-    // ── Fotos ────────────────────────
+    // Fotos
     for (let i = 0; i < n; i++) {
-      const p   = photos[i];
-      const col = i % cols;
-      const row = Math.floor(i / cols);
-      const x   = MARGIN + col * (cellW + GAP);
-      const y   = HEADER_H + row * (cellH + GAP);
-
-      // Nombre / descripción encima
-      const label = p.description || p.location || `Foto ${i + 1}`;
+      const p        = photos[i];
+      const col      = i % cols;
+      const row      = Math.floor(i / cols);
+      const x        = MARGIN + col * (cellW + GAP);
+      const y        = HEADER_H + row * (cellH + GAP);
+      const label    = p.description || p.location || `Foto ${i + 1}`;
       const fontSize = cols <= 2 ? 11 : cols === 3 ? 10 : 9;
 
       s.addText(label, {
@@ -335,19 +443,32 @@ const Export = {
       }
     }
 
-    this._addFooter(s, pres);
+    this._addFooter(s, pres, footerDesc);
   },
 
-  _addFooter(slide, pres) {
-    const y = 5.625 - 0.42;
+  // ── Footer: ORG_NAME izquierda, descripción derecha (siempre reserva el espacio) ──
+  // Si desc está vacío → el espacio derecho queda en blanco
+  _addFooter(slide, pres, desc = '') {
+    const FOOTER_H = 0.42;
+    const y        = 5.625 - FOOTER_H;
+
     slide.addShape(pres.shapes.RECTANGLE, {
-      x: 0, y, w: 10, h: 0.42,
+      x: 0, y, w: 10, h: FOOTER_H,
       fill: { color: 'CC0000' }
     });
+
+    // ORG_NAME siempre izquierda
     slide.addText(ORG_NAME, {
-      x: 0.2, y: y + 0.04, w: 7.5, h: 0.34,
-      fontSize: 12, color: 'FFFFFF', bold: true,
+      x: 0.2, y: y + 0.03, w: 5, h: FOOTER_H - 0.06,
+      fontSize: 11, color: 'FFFFFF', bold: true,
       fontFace: 'Calibri', valign: 'middle'
+    });
+
+    // Descripción derecha — siempre se agrega el text box, vacío o no
+    slide.addText(desc, {
+      x: 5.2, y: y + 0.03, w: 4.6, h: FOOTER_H - 0.06,
+      fontSize: 10, color: 'FFD0D0',
+      fontFace: 'Calibri', valign: 'middle', align: 'right'
     });
   },
 
@@ -357,7 +478,7 @@ const Export = {
     if (n === 3) return { cols: 3, rows: 1 };
     if (n === 4) return { cols: 2, rows: 2 };
     if (n === 5) return { cols: 3, rows: 2 };
-    return       { cols: 3, rows: 2 };  // 6
+    return       { cols: 3, rows: 2 };
   },
 
   _chunk(arr, size) {
