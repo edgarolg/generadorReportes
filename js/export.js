@@ -2,10 +2,8 @@
 //  export.js
 //  Un slide por subgrupo, paginación automática,
 //  título = nombre del subgrupo,
-//  footer con ORG_NAME + descripción opcional
+//  footer con  descripción opcional por slide o global para todo el proyecto
 // ═══════════════════════════════════════
-
-const ORG_NAME      = 'Occidente Bajio M&E';
 const MAX_PER_SLIDE = 6;
 
 const Export = {
@@ -220,7 +218,6 @@ const Export = {
       const pres  = new PptxGenJS();
       pres.layout = 'LAYOUT_16x9';
       pres.title  = projectName;
-      pres.author = ORG_NAME;
 
       this._addCoverSlide(pres, projectName, photos, pid, descs);
       UI.setProgress(5, 'Portada lista…');
@@ -354,7 +351,7 @@ const Export = {
         .map(sg => `${sg.name} (${State.getPhotosBySubgroup(sg.id).length})`)
         .join('   ·   ');
       s.addText(sgList, {
-        x: 0.35, y: 2.8, w: 9.3, h: 0.35,
+        x: 0.35, y: 4.8, w: 9.3, h: 0.35,
         fontSize: 11, color: '555555', fontFace: 'Calibri', wrap: true
       });
     }
@@ -362,13 +359,8 @@ const Export = {
     s.addText(
       `${photos.length} foto${photos.length !== 1 ? 's' : ''} · ` +
       new Date().toLocaleDateString('es-MX', { day: '2-digit', month: 'long', year: 'numeric' }),
-      { x: 0.35, y: 3.25, w: 6.8, h: 0.35, fontSize: 13, color: '888888', fontFace: 'Calibri' }
+      { x: 0.35, y: 5.25, w: 6.8, h: 0.35, fontSize: 13, color: '888888', fontFace: 'Calibri' }
     );
-
-    s.addText(ORG_NAME, {
-      x: 0.35, y: 3.7, w: 6.8, h: 0.3,
-      fontSize: 12, color: 'CC0000', bold: true, fontFace: 'Calibri'
-    });
 
     // En la portada mostramos la descripción global si existe
     const globalDesc = descs['__global__'] || '';
@@ -446,8 +438,8 @@ const Export = {
     this._addFooter(s, pres, footerDesc);
   },
 
-  // ── Footer: ORG_NAME izquierda, descripción derecha (siempre reserva el espacio) ──
-  // Si desc está vacío → el espacio derecho queda en blanco
+  // ── Footer:  descripción izquierda (siempre reserva el espacio) ──
+  // Si desc está vacío → el espacio queda en blanco
   _addFooter(slide, pres, desc = '') {
     const FOOTER_H = 0.42;
     const y        = 5.625 - FOOTER_H;
@@ -457,17 +449,10 @@ const Export = {
       fill: { color: 'CC0000' }
     });
 
-    // ORG_NAME siempre izquierda
-    slide.addText(ORG_NAME, {
-      x: 0.2, y: y + 0.03, w: 5, h: FOOTER_H - 0.06,
-      fontSize: 11, color: 'FFFFFF', bold: true,
-      fontFace: 'Calibri', valign: 'middle'
-    });
-
     // Descripción derecha — siempre se agrega el text box, vacío o no
     slide.addText(desc, {
-      x: 5.2, y: y + 0.03, w: 4.6, h: FOOTER_H - 0.06,
-      fontSize: 10, color: 'FFD0D0',
+      x: 0.2, y: y + 0.03, w: 4.6, h: FOOTER_H - 0.06,
+      fontSize: 10, color: 'FFFFFF', italic: true,
       fontFace: 'Calibri', valign: 'middle', align: 'right'
     });
   },
