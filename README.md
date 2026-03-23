@@ -18,9 +18,8 @@ App móvil para capturar fotos en campo, agregarles ubicación y descripción, y
 
 Abre la app en tu celular:
 
-**[👉 Abrir FotoReporte](https://TU_USUARIO.github.io/fotoreporte/)**
+**[👉 Abrir FotoReporte](https://edgarolg.github.io/generadorReportes/)**
 
-> Cambia `TU_USUARIO` por tu usuario de GitHub una vez que publiques el repo.
 
 ## 📱 Cómo usarla
 

@@ -1,19 +1,15 @@
 // ═══════════════════════════════════════
 //  export.js
-//  Exportación estilo "Frescos Soriana":
-//  grid automático, nombre sobre cada foto,
-//  título arriba izquierda con ▶ rojo,
-//  footer rojo con nombre de organización.
+//  Un slide por subgrupo, paginación automática,
+//  título = nombre del subgrupo
 // ═══════════════════════════════════════
 
-// ── Configura aquí tu organización ─────
-const ORG_NAME = 'Occidente Bajio M&E';
-// ───────────────────────────────────────
+const ORG_NAME   = 'Occidente Bajio M&E';
+const MAX_PER_SLIDE = 6;   // máximo de fotos por slide dentro de un subgrupo
 
 const Export = {
   _colors: ['CC0000', 'a80000', '009a44', 'd97706', '1d6fbf'],
 
-  // ── Pantalla de exportación ─────────
   render() {
     const cont    = document.getElementById('expContent');
     const projIds = Object.keys(State.projects);
@@ -38,6 +34,21 @@ const Export = {
       if (!photos.length) return;
 
       const color = this._colors[idx % this._colors.length];
+      const sgs   = State.getSubgroupsByProject(pid);
+      const ungrouped = State.getUngroupedPhotos(pid);
+
+      // Resumen de subgrupos para mostrar en la tarjeta
+      let subSummary = '';
+      if (sgs.length) {
+        subSummary = sgs.map(sg => {
+          const c = State.getPhotosBySubgroup(sg.id).length;
+          return `<span style="font-size:11px;color:var(--muted);margin-right:8px">${UI.esc(sg.name)} (${c})</span>`;
+        }).join('');
+        if (ungrouped.length) {
+          subSummary += `<span style="font-size:11px;color:var(--muted)">Sin subgrupo (${ungrouped.length})</span>`;
+        }
+      }
+
       html += `
         <div class="exp-proj-item">
           <div class="exp-proj-header" onclick="Export._toggleSection('eps_${pid}')">
@@ -50,7 +61,7 @@ const Export = {
               </div>
               <div>
                 <div class="exp-proj-title">${UI.esc(State.projects[pid])}</div>
-                <div class="exp-proj-sub">${photos.length} foto${photos.length !== 1 ? 's' : ''}</div>
+                <div class="exp-proj-sub">${photos.length} foto${photos.length !== 1 ? 's' : ''} · ${sgs.length} subgrupo${sgs.length !== 1 ? 's' : ''}</div>
               </div>
             </div>
             <button class="exp-btn"
@@ -60,8 +71,10 @@ const Export = {
           </div>
 
           <div id="eps_${pid}" style="display:none">
+            ${subSummary ? `<div style="padding:4px 14px 10px;display:flex;flex-wrap:wrap;gap:2px">${subSummary}</div>` : ''}
             <div class="exp-thumbs">
-              ${photos.map(p => `<img class="exp-thumb" src="${p.data}" alt="" loading="lazy">`).join('')}
+              ${photos.slice(0, 12).map(p => `<img class="exp-thumb" src="${p.data}" alt="" loading="lazy">`).join('')}
+              ${photos.length > 12 ? `<div style="width:54px;height:54px;border-radius:7px;background:var(--s2);display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--muted);flex-shrink:0;border:1px solid var(--border)">+${photos.length - 12}</div>` : ''}
             </div>
             <div style="padding:0 12px 14px;display:flex;gap:8px">
               <button class="exp-btn del" style="flex:1"
@@ -100,24 +113,33 @@ const Export = {
 
     try {
       const pres  = new PptxGenJS();
-      pres.layout = 'LAYOUT_16x9';   // 10" × 5.625"
+      pres.layout = 'LAYOUT_16x9';
       pres.title  = projectName;
       pres.author = ORG_NAME;
 
       // ── Portada ──────────────────────
-      this._addCoverSlide(pres, projectName, photos.length);
+      this._addCoverSlide(pres, projectName, photos, pid);
       UI.setProgress(5, 'Portada lista…');
 
-      // ── Diapositivas de fotos ────────
-      const perSlide = this._photosPerSlide(photos.length);
-      const pages    = this._chunk(photos, perSlide);
+      // ── Agrupar fotos por subgrupo ───
+      // Orden: subgrupos en orden de creación, luego sin subgrupo
+      const sections = this._buildSections(photos, pid);
+      const totalSlides = sections.reduce((acc, s) => acc + s.pages.length, 0);
+      let slidesDone = 0;
 
-      for (let pi = 0; pi < pages.length; pi++) {
-        const pagePhotos = pages[pi];
-        const pct = 5 + Math.round((pi + 1) / pages.length * 90);
-        UI.setProgress(pct, `Slide ${pi + 1} de ${pages.length}…`);
-        await new Promise(r => setTimeout(r, 10));
-        this._addPhotoSlide(pres, pagePhotos, projectName, pi + 1, pages.length);
+      for (const section of sections) {
+        for (let pi = 0; pi < section.pages.length; pi++) {
+          slidesDone++;
+          const pct = 5 + Math.round(slidesDone / totalSlides * 90);
+          UI.setProgress(pct, `"${section.title}" — slide ${pi + 1}/${section.pages.length}…`);
+          await new Promise(r => setTimeout(r, 10));
+
+          const pageLabel = section.pages.length > 1
+            ? `${section.title} (${pi + 1}/${section.pages.length})`
+            : section.title;
+
+          this._addPhotoSlide(pres, section.pages[pi], pageLabel);
+        }
       }
 
       UI.setProgress(100, 'Guardando…');
@@ -150,43 +172,98 @@ const Export = {
     }
   },
 
+  // ── Construye secciones [{title, pages[]}] ──
+  _buildSections(photos, pid) {
+    const sections = [];
+
+    if (pid) {
+      // Subgrupos del proyecto en orden
+      const sgs = State.getSubgroupsByProject(pid);
+      for (const sg of sgs) {
+        const sgPhotos = photos.filter(p => p.subgroupId === sg.id);
+        if (!sgPhotos.length) continue;
+        sections.push({
+          title: sg.name,
+          pages: this._chunk(sgPhotos, MAX_PER_SLIDE)
+        });
+      }
+      // Fotos sin subgrupo al final
+      const ungrouped = photos.filter(p => !p.subgroupId);
+      if (ungrouped.length) {
+        sections.push({
+          title: 'Sin subgrupo',
+          pages: this._chunk(ungrouped, MAX_PER_SLIDE)
+        });
+      }
+    } else {
+      // Exportación de selección — agrupar por subgroupId
+      const bySubgroup = {};
+      photos.forEach(p => {
+        const key = p.subgroupId || '__none__';
+        if (!bySubgroup[key]) bySubgroup[key] = [];
+        bySubgroup[key].push(p);
+      });
+      Object.entries(bySubgroup).forEach(([key, ps]) => {
+        const title = key === '__none__'
+          ? 'Selección'
+          : (State.subgroups[key]?.name || 'Subgrupo');
+        sections.push({ title, pages: this._chunk(ps, MAX_PER_SLIDE) });
+      });
+    }
+
+    // Si no hay ninguna sección (todo sin subgrupo y sin pid), crear una genérica
+    if (!sections.length) {
+      sections.push({ title: projectName || 'Fotos', pages: this._chunk(photos, MAX_PER_SLIDE) });
+    }
+
+    return sections;
+  },
+
   // ── Portada ─────────────────────────
-  _addCoverSlide(pres, projectName, totalPhotos) {
+  _addCoverSlide(pres, projectName, photos, pid) {
     const s = pres.addSlide();
     s.background = { color: 'FFFFFF' };
 
-    // Franja roja izquierda
     s.addShape(pres.shapes.RECTANGLE, {
       x: 0, y: 0, w: 0.18, h: 5.625,
       fill: { color: 'CC0000' }
     });
 
-    // Título principal
+    const sgs = pid ? State.getSubgroupsByProject(pid) : [];
+
     s.addText(projectName, {
-      x: 0.35, y: 1.5, w: 6.8, h: 1.4,
-      fontSize: 36, color: '1a1a1a', bold: true,
+      x: 0.35, y: 1.3, w: 6.8, h: 1.4,
+      fontSize: 34, color: '1a1a1a', bold: true,
       fontFace: 'Calibri', wrap: true, valign: 'middle'
     });
 
-    // Subtítulo — fotos + fecha
+    // Subgrupos como lista compacta
+    if (sgs.length) {
+      const sgList = sgs
+        .map(sg => `${sg.name} (${State.getPhotosBySubgroup(sg.id).length})`)
+        .join('   ·   ');
+      s.addText(sgList, {
+        x: 0.35, y: 2.8, w: 9.3, h: 0.35,
+        fontSize: 11, color: '555555', fontFace: 'Calibri', wrap: true
+      });
+    }
+
     s.addText(
-      `${totalPhotos} foto${totalPhotos !== 1 ? 's' : ''} · ` +
+      `${photos.length} foto${photos.length !== 1 ? 's' : ''} · ` +
       new Date().toLocaleDateString('es-MX', { day: '2-digit', month: 'long', year: 'numeric' }),
-      { x: 0.35, y: 3.05, w: 6.8, h: 0.4, fontSize: 14, color: '888888', fontFace: 'Calibri' }
+      { x: 0.35, y: 3.25, w: 6.8, h: 0.35, fontSize: 13, color: '888888', fontFace: 'Calibri' }
     );
 
-    // Nombre de organización
     s.addText(ORG_NAME, {
-      x: 0.35, y: 3.55, w: 6.8, h: 0.35,
-      fontSize: 13, color: 'CC0000', bold: true, fontFace: 'Calibri'
+      x: 0.35, y: 3.7, w: 6.8, h: 0.3,
+      fontSize: 12, color: 'CC0000', bold: true, fontFace: 'Calibri'
     });
 
-    // Footer rojo
     this._addFooter(s, pres);
   },
 
   // ── Slide de fotos ───────────────────
-  _addPhotoSlide(pres, photos, projectName, pageNum, totalPages) {
+  _addPhotoSlide(pres, photos, slideTitle) {
     const s = pres.addSlide();
     s.background = { color: 'FFFFFF' };
 
@@ -202,43 +279,30 @@ const Export = {
     const n = photos.length;
     const { cols, rows } = this._gridLayout(n);
 
-    const totalGapW = GAP * (cols - 1) + MARGIN * 2;
-    const totalGapH = GAP * (rows - 1);
-    const cellW = (SLIDE_W - totalGapW) / cols;
-    const cellH = (CONTENT_H - totalGapH) / rows;
+    const cellW = (SLIDE_W - GAP * (cols - 1) - MARGIN * 2) / cols;
+    const cellH = (CONTENT_H - GAP * (rows - 1)) / rows;
     const imgH  = cellH - NAME_H;
 
-    // ── Header gris ──────────────────
+    // ── Header ──────────────────────
     s.addShape(pres.shapes.RECTANGLE, {
       x: 0, y: 0, w: SLIDE_W, h: HEADER_H,
       fill: { color: 'f2f2f2' }
     });
-    // Línea roja inferior del header
     s.addShape(pres.shapes.RECTANGLE, {
       x: 0, y: HEADER_H - 0.04, w: SLIDE_W, h: 0.04,
       fill: { color: 'CC0000' }
     });
-    // Rectángulo rojo pequeño simulando ▶
     s.addShape(pres.shapes.RECTANGLE, {
       x: 0.1, y: 0.1, w: 0.08, h: HEADER_H - 0.2,
       fill: { color: 'CC0000' }
     });
-    // Título
-    s.addText(projectName.toUpperCase(), {
-      x: 0.26, y: 0.05, w: SLIDE_W - 1.4, h: HEADER_H - 0.08,
+    s.addText(slideTitle.toUpperCase(), {
+      x: 0.26, y: 0.05, w: SLIDE_W - 0.36, h: HEADER_H - 0.08,
       fontSize: 13, color: '1a1a1a', bold: true,
       fontFace: 'Calibri', valign: 'middle'
     });
-    // Numeración
-    if (totalPages > 1) {
-      s.addText(`${pageNum} / ${totalPages}`, {
-        x: SLIDE_W - 1.1, y: 0.05, w: 1.0, h: HEADER_H - 0.08,
-        fontSize: 10, color: '888888', fontFace: 'Calibri',
-        align: 'right', valign: 'middle'
-      });
-    }
 
-    // ── Fotos en grid ─────────────────
+    // ── Fotos ────────────────────────
     for (let i = 0; i < n; i++) {
       const p   = photos[i];
       const col = i % cols;
@@ -246,93 +310,59 @@ const Export = {
       const x   = MARGIN + col * (cellW + GAP);
       const y   = HEADER_H + row * (cellH + GAP);
 
-      // Nombre / descripción encima de la foto
+      // Nombre / descripción encima
       const label = p.description || p.location || `Foto ${i + 1}`;
-      const nameFontSize = cols <= 2 ? 12 : cols === 3 ? 10 : 9;
+      const fontSize = cols <= 2 ? 11 : cols === 3 ? 10 : 9;
 
       s.addText(label, {
-        x, y,
-        w: cellW, h: NAME_H,
-        fontSize: nameFontSize,
-        color: '1a1a1a', bold: true,
+        x, y, w: cellW, h: NAME_H,
+        fontSize, color: '1a1a1a', bold: true,
         fontFace: 'Calibri', align: 'center', valign: 'middle'
       });
 
-      // Foto
       s.addImage({
         data: p.data.replace(/^data:image\/\w+;base64,/, 'image/jpeg;base64,'),
-        x,
-        y: y + NAME_H,
-        w: cellW,
-        h: imgH,
+        x, y: y + NAME_H, w: cellW, h: imgH,
         sizing: { type: 'cover', w: cellW, h: imgH }
       });
 
-      // Timestamp pequeño sobre la foto (esquina inferior derecha)
-      if (p.timeLabel && imgH > 0.5) {
+      if (p.timeLabel && imgH > 0.4) {
         s.addText(`${p.dateLabel}  ${p.timeLabel}`, {
-          x: x + 0.04,
-          y: y + NAME_H + imgH - 0.2,
-          w: cellW - 0.08,
-          h: 0.18,
-          fontSize: 7,
-          color: 'FFFFFF',
-          fontFace: 'Calibri',
-          align: 'right'
+          x: x + 0.04, y: y + NAME_H + imgH - 0.2,
+          w: cellW - 0.08, h: 0.18,
+          fontSize: 7, color: 'FFFFFF', fontFace: 'Calibri', align: 'right'
         });
       }
     }
 
-    // ── Footer ───────────────────────
     this._addFooter(s, pres);
   },
 
-  // ── Footer rojo ─────────────────────
   _addFooter(slide, pres) {
-    const SLIDE_W  = 10;
-    const SLIDE_H  = 5.625;
-    const FOOTER_H = 0.42;
-    const y = SLIDE_H - FOOTER_H;
-
+    const y = 5.625 - 0.42;
     slide.addShape(pres.shapes.RECTANGLE, {
-      x: 0, y, w: SLIDE_W, h: FOOTER_H,
+      x: 0, y, w: 10, h: 0.42,
       fill: { color: 'CC0000' }
     });
     slide.addText(ORG_NAME, {
-      x: 0.2, y: y + 0.04, w: 7.5, h: FOOTER_H - 0.08,
+      x: 0.2, y: y + 0.04, w: 7.5, h: 0.34,
       fontSize: 12, color: 'FFFFFF', bold: true,
       fontFace: 'Calibri', valign: 'middle'
     });
   },
 
-  // ── Fotos por slide según total ──────
-  _photosPerSlide(total) {
-    if (total <= 1) return 1;
-    if (total <= 2) return 2;
-    if (total <= 3) return 3;
-    if (total <= 4) return 4;
-    if (total <= 6) return 6;
-    if (total <= 8) return 8;
-    return 9;
-  },
-
-  // ── Layout del grid ──────────────────
   _gridLayout(n) {
     if (n === 1) return { cols: 1, rows: 1 };
     if (n === 2) return { cols: 2, rows: 1 };
     if (n === 3) return { cols: 3, rows: 1 };
     if (n === 4) return { cols: 2, rows: 2 };
-    if (n <= 6)  return { cols: 3, rows: 2 };
-    if (n <= 8)  return { cols: 4, rows: 2 };
-    return       { cols: 3, rows: 3 };
+    if (n === 5) return { cols: 3, rows: 2 };
+    return       { cols: 3, rows: 2 };  // 6
   },
 
-  // ── Divide array en páginas ──────────
   _chunk(arr, size) {
-    const chunks = [];
-    for (let i = 0; i < arr.length; i += size) {
-      chunks.push(arr.slice(i, i + size));
-    }
-    return chunks;
+    const out = [];
+    for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+    return out;
   }
 };

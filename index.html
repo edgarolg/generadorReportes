@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="theme-color" content="#0e0e16">
+  <meta name="theme-color" content="#CC0000">
   <title>FotoReporte</title>
   <link rel="stylesheet" href="css/styles.css">
   <script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
@@ -42,13 +42,27 @@
 
     <div class="cam-ctrl">
       <div class="left">
+
+        <!-- Proyecto -->
         <div>
-          <label class="lbl">Proyecto / Sesión</label>
+          <label class="lbl">Proyecto</label>
           <div class="proj-row">
-            <select class="sel" id="projSelect" style="flex:1"></select>
+            <select class="sel" id="projSelect" style="flex:1"
+              onchange="Projects.renderSubgroupSelect(this.value)"></select>
             <button class="btn-new" onclick="Projects.openNew()">+ Nuevo</button>
           </div>
         </div>
+
+        <!-- Subgrupo -->
+        <div id="subgroupRow" style="display:none">
+          <label class="lbl">Subgrupo / Título del slide</label>
+          <div class="proj-row">
+            <select class="sel" id="subgroupSelect" style="flex:1"></select>
+            <button class="btn-new" onclick="Projects.openNewSubgroup()">+ Nuevo</button>
+          </div>
+        </div>
+
+        <!-- Ubicación -->
         <div>
           <label class="lbl">Ubicación</label>
           <div style="display:flex;gap:8px">
@@ -56,11 +70,16 @@
             <button class="btn-gps" onclick="Camera.getGPS()">📍</button>
           </div>
         </div>
+
+        <!-- Descripción -->
         <div>
-          <label class="lbl">Descripción (opcional)</label>
-          <textarea class="ta" id="descInput" placeholder="¿Qué muestra esta foto?"></textarea>
+          <label class="lbl">Nombre / Descripción</label>
+          <textarea class="ta" id="descInput" placeholder="Nombre de persona o descripción de la foto"></textarea>
         </div>
+
       </div>
+
+      <!-- Botón disparar -->
       <button class="shoot-btn" id="shootBtn" onclick="Camera.takePhoto()">
         <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
           <circle cx="12" cy="12" r="8"/>
@@ -69,8 +88,9 @@
       </button>
     </div>
 
+    <!-- Últimas fotos -->
     <div id="recentStrip" class="recent-strip" style="display:none">
-      <label class="lbl" style="margin-bottom:8px;display:block">Últimas fotos</label>
+      <label class="lbl" style="margin-bottom:8px">Últimas fotos</label>
       <div id="recentPhotos" class="recent-photos"></div>
     </div>
   </section>
@@ -87,8 +107,9 @@
     </div>
     <div id="galContent"></div>
     <div class="bottom-bar" id="galBar" style="display:none">
-      <button class="bar-btn danger"  onclick="Gallery.deleteSelected()">Eliminar</button>
-      <button class="bar-btn primary" onclick="Gallery.exportSelected()">Exportar selección</button>
+      <button class="bar-btn danger"    onclick="Gallery.deleteSelected()">Eliminar</button>
+      <button class="bar-btn secondary" onclick="Gallery.openAssignSubgroup()">Mover a…</button>
+      <button class="bar-btn primary"   onclick="Gallery.exportSelected()">Exportar</button>
     </div>
   </section>
 
@@ -96,7 +117,7 @@
   <section id="scrExp" class="scr">
     <div class="exp-head">
       <h2>Exportar a PowerPoint</h2>
-      <p>Elige un proyecto para generar el archivo .pptx</p>
+      <p>Un slide por subgrupo, grid automático de fotos</p>
     </div>
     <div id="expContent" class="exp-proj-list"></div>
   </section>
@@ -105,7 +126,7 @@
   <div class="modal-bg" id="modalProj">
     <div class="modal">
       <h3>Nuevo proyecto</h3>
-      <p>Dale un nombre a esta sesión o lugar de trabajo</p>
+      <p>El nombre del proyecto aparece en la portada del PowerPoint</p>
       <div class="field">
         <label class="lbl">Nombre del proyecto</label>
         <input class="inp" id="newProjName"
@@ -115,6 +136,40 @@
       <div class="row">
         <button class="cancel" onclick="UI.closeModal('modalProj')">Cancelar</button>
         <button class="ok"     onclick="Projects.saveNew()">Crear</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ MODAL: NUEVO SUBGRUPO ══ -->
+  <div class="modal-bg" id="modalSubgroup">
+    <div class="modal">
+      <h3>Nuevo subgrupo</h3>
+      <p>El nombre del subgrupo será el título de la diapositiva en el PowerPoint</p>
+      <div class="field">
+        <label class="lbl">Nombre del subgrupo</label>
+        <input class="inp" id="newSgName"
+          placeholder="Ej: Frutas y Verduras, Carnicería, Rack A3…"
+          onkeydown="if(event.key==='Enter') Projects.saveNewSubgroup()">
+      </div>
+      <div class="row">
+        <button class="cancel" onclick="UI.closeModal('modalSubgroup')">Cancelar</button>
+        <button class="ok"     onclick="Projects.saveNewSubgroup()">Crear</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ MODAL: ASIGNAR SUBGRUPO (desde galería) ══ -->
+  <div class="modal-bg" id="modalAssign">
+    <div class="modal">
+      <h3>Mover fotos a…</h3>
+      <p>Las fotos seleccionadas se moverán al subgrupo que elijas</p>
+      <div class="field">
+        <label class="lbl">Subgrupo destino</label>
+        <select class="sel" id="assignSgSelect"></select>
+      </div>
+      <div class="row">
+        <button class="cancel" onclick="UI.closeModal('modalAssign')">Cancelar</button>
+        <button class="ok"     onclick="Gallery.saveAssignSubgroup()">Mover</button>
       </div>
     </div>
   </div>
@@ -145,7 +200,7 @@
   <!-- ══ TOAST ══ -->
   <div class="toast" id="toast"></div>
 
-  <!-- ══ SCRIPTS (orden importa: storage → ui → camera → projects → gallery → export → app) ══ -->
+  <!-- ══ SCRIPTS ══ -->
   <script src="js/storage.js"></script>
   <script src="js/ui.js"></script>
   <script src="js/camera.js"></script>

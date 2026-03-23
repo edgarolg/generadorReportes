@@ -1,12 +1,19 @@
 // ═══════════════════════════════════════
 //  storage.js
 //  Estado global y persistencia en localStorage
+//
+//  Estructura de datos:
+//  {
+//    projects: { [pid]: "Nombre proyecto" },
+//    subgroups: { [sgid]: { name, projectId } },
+//    photos: [ { id, projectId, subgroupId, ... } ]
+//  }
 // ═══════════════════════════════════════
 
-const STORE_KEY = 'fotoreporte_v2';
+const STORE_KEY = 'fotoreporte_v3';
 
 const State = {
-  data: { projects: {}, photos: [] },
+  data: { projects: {}, subgroups: {}, photos: [] },
 
   save() {
     try {
@@ -19,14 +26,59 @@ const State = {
   load() {
     const raw = localStorage.getItem(STORE_KEY);
     if (raw) {
-      try { this.data = JSON.parse(raw); } catch (e) {}
+      try {
+        const parsed = JSON.parse(raw);
+        // Migración desde v2 (sin subgroups)
+        if (!parsed.subgroups) parsed.subgroups = {};
+        this.data = parsed;
+      } catch (e) {}
     }
   },
 
-  // Helpers para no escribir State.data.* en todos lados
-  get projects() { return this.data.projects; },
-  get photos()   { return this.data.photos; },
+  // ── Getters cortos ──────────────────
+  get projects()  { return this.data.projects; },
+  get subgroups() { return this.data.subgroups; },
+  get photos()    { return this.data.photos; },
 
+  // ── Proyectos ───────────────────────
+  addProject(id, name) {
+    this.data.projects[id] = name;
+    this.save();
+  },
+
+  removeProject(pid) {
+    delete this.data.projects[pid];
+    // Eliminar subgrupos del proyecto
+    Object.keys(this.data.subgroups).forEach(sgid => {
+      if (this.data.subgroups[sgid].projectId === pid) {
+        delete this.data.subgroups[sgid];
+      }
+    });
+    this.save();
+  },
+
+  // ── Subgrupos ───────────────────────
+  addSubgroup(id, name, projectId) {
+    this.data.subgroups[id] = { name, projectId };
+    this.save();
+  },
+
+  removeSubgroup(sgid) {
+    // Desasignar fotos de este subgrupo (quedan en el proyecto sin subgrupo)
+    this.data.photos.forEach(p => {
+      if (p.subgroupId === sgid) p.subgroupId = null;
+    });
+    delete this.data.subgroups[sgid];
+    this.save();
+  },
+
+  getSubgroupsByProject(pid) {
+    return Object.entries(this.data.subgroups)
+      .filter(([, sg]) => sg.projectId === pid)
+      .map(([id, sg]) => ({ id, ...sg }));
+  },
+
+  // ── Fotos ───────────────────────────
   addPhoto(photo) {
     this.data.photos.push(photo);
     this.save();
@@ -42,18 +94,21 @@ const State = {
     this.save();
   },
 
-  addProject(id, name) {
-    this.data.projects[id] = name;
-    this.save();
-  },
-
-  removeProject(pid) {
-    delete this.data.projects[pid];
-    this.save();
+  assignSubgroup(photoId, subgroupId) {
+    const p = this.data.photos.find(p => p.id === photoId);
+    if (p) { p.subgroupId = subgroupId; this.save(); }
   },
 
   getPhotosByProject(pid) {
     return this.data.photos.filter(p => p.projectId === pid);
+  },
+
+  getPhotosBySubgroup(sgid) {
+    return this.data.photos.filter(p => p.subgroupId === sgid);
+  },
+
+  getUngroupedPhotos(pid) {
+    return this.data.photos.filter(p => p.projectId === pid && !p.subgroupId);
   },
 
   getPhotoById(id) {
